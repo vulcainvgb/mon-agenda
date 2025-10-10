@@ -48,8 +48,11 @@ export default function CalendrierPage() {
   useEffect(() => {
     checkUser();
     loadData();
-    const interval = setInterval(loadData, 3000);
-    return () => clearInterval(interval);
+    
+    // 🎓 POLLING DÉSACTIVÉ TEMPORAIREMENT POUR DEBUG
+    // const interval = setInterval(loadData, 3000);
+    // return () => clearInterval(interval);
+    
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -68,13 +71,16 @@ export default function CalendrierPage() {
         supabase.from('projects').select('*').eq('user_id', user.id)
       ]);
 
+      console.log('🔍 Événements reçus:', eventsRes.data); // DEBUG
+      console.log('🔍 Erreur éventuelle:', eventsRes.error); // DEBUG
+
       if (eventsRes.data) {
         convertToCalendarEvents(eventsRes.data);
       }
       if (projectsRes.data) setProjects(projectsRes.data);
       setLoading(false);
     } catch (error) {
-      console.error('Erreur chargement:', error);
+      console.error('❌ Erreur chargement:', error);
       setLoading(false);
     }
   };
@@ -83,10 +89,12 @@ export default function CalendrierPage() {
     const converted = eventsData.map(event => ({
       id: event.id,
       title: event.title,
-      start: new Date(event.start_time + 'Z'), // Le 'Z' force l'interprétation comme UTC, puis convertit en local
-      end: new Date(event.end_time + 'Z'),
+      start: parseDateTime(event.start_time),
+      end: parseDateTime(event.end_time),
       resource: event
     }));
+    
+    console.log('📅 Événements convertis:', converted); // DEBUG
     setCalendarEvents(converted);
   };
 
@@ -98,6 +106,35 @@ export default function CalendrierPage() {
     const minutes = String(date.getMinutes()).padStart(2, '0');
     const seconds = String(date.getSeconds()).padStart(2, '0');
     return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+  };
+
+  // 🎓 FONCTION DE PARSING UNIQUE
+  // Lit les dates de Supabase sans décalage timezone
+  const parseDateTime = (dateStr: string | Date) => {
+    // Si c'est déjà un objet Date, le retourner tel quel
+    if (dateStr instanceof Date) return dateStr;
+    
+    // Format de Supabase: "2025-01-15 15:00:00" ou "2025-01-15T15:00:00"
+    const cleaned = String(dateStr).replace(' ', 'T').split('.')[0].split('+')[0].split('Z')[0];
+    
+    console.log('🔍 Parsing:', dateStr, '→', cleaned);
+    
+    // Parser manuellement pour éviter la conversion timezone
+    const parts = cleaned.split('T');
+    if (parts.length !== 2) {
+      console.warn('⚠️ Format inattendu:', dateStr);
+      return new Date(cleaned);
+    }
+    
+    const [datePart, timePart] = parts;
+    const [year, month, day] = datePart.split('-').map(Number);
+    const [hours, minutes, seconds = 0] = timePart.split(':').map(Number);
+    
+    // Créer la date en LOCAL (pas UTC)
+    const result = new Date(year, month - 1, day, hours, minutes, seconds);
+    
+    console.log('📅 Résultat parsing:', result.toLocaleString('fr-FR'));
+    return result;
   };
 
   const handleSelectSlot = ({ start, end }: { start: Date; end: Date }) => {
@@ -130,24 +167,58 @@ export default function CalendrierPage() {
   const handleEventDrop = useCallback(async ({ event, start, end }: { event: CalendarEvent; start: Date; end: Date }) => {
     try {
       setIsDragging(true);
+      
+      // 🎓 DEBUG: Voir les dates reçues
+      console.log('🎯 DROP - Dates brutes:', { start, end });
+      console.log('🎯 DROP - Dates locales:', { 
+        start: start.toLocaleString('fr-FR'), 
+        end: end.toLocaleString('fr-FR') 
+      });
+      console.log('🎯 DROP - Timezone offset:', start.getTimezoneOffset());
+      
+      // Optimistic update
       const updatedEvents = calendarEvents.map(e => 
-        e.id === event.id ? { ...e, start: new Date(start), end: new Date(end) } : e
+        e.id === event.id ? { ...e, start: start, end: end } : e
       );
       setCalendarEvents(updatedEvents);
+
+      // 🎓 NOUVELLE APPROCHE: Extraire directement les composants de la date locale
+      const formatDateDirectly = (date: Date) => {
+        // Utiliser les getters locaux, pas UTC
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        const hours = String(date.getHours()).padStart(2, '0');
+        const minutes = String(date.getMinutes()).padStart(2, '0');
+        const seconds = String(date.getSeconds()).padStart(2, '0');
+        
+        const formatted = `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+        console.log(`📅 Date ${date.toLocaleString('fr-FR')} → ${formatted}`);
+        return formatted;
+      };
+      
+      const startFormatted = formatDateDirectly(start);
+      const endFormatted = formatDateDirectly(end);
+      
+      console.log('💾 Sauvegarde en DB:', { startFormatted, endFormatted });
 
       const { error } = await supabase
         .from('events')
         .update({
-          start_time: formatLocalDateTime(new Date(start)),
-          end_time: formatLocalDateTime(new Date(end))
+          start_time: startFormatted,
+          end_time: endFormatted
         })
         .eq('id', event.id);
 
       if (error) throw error;
-      await loadData();
+      
+      console.log('✅ Événement déplacé avec succès');
+      
+      // Attendre un peu avant de recharger pour voir les logs
+      setTimeout(() => loadData(), 500);
       setIsDragging(false);
     } catch (error) {
-      console.error('Erreur déplacement:', error);
+      console.error('❌ Erreur déplacement:', error);
       await loadData();
       setIsDragging(false);
     }
