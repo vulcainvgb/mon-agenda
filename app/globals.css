@@ -24,3 +24,80 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* Styles existants... */
+
+/* 🎓 STYLES POUR LE DRAG & DROP DU CALENDRIER */
+
+/* Événement pendant le drag */
+.rbc-addons-dnd-dragging {
+  opacity: 0.7;
+  cursor: move !important;
+}
+
+/* Zone de drop valide */
+.rbc-addons-dnd-over {
+  background-color: rgba(59, 130, 246, 0.1) !important;
+}
+
+/* Événement en cours de resize */
+.rbc-addons-dnd-resizing {
+  opacity: 0.7;
+}
+
+/* Curseur lors du resize */
+.rbc-event {
+  cursor: move;
+}
+
+.rbc-event.rbc-selected {
+  cursor: move;
+}
+
+/* Poignées de resize (haut et bas de l'événement) */
+.rbc-addons-dnd-resize-ns-anchor {
+  cursor: ns-resize !important;
+}
+
+.rbc-addons-dnd-resize-ew-anchor {
+  cursor: ew-resize !important;
+}
+
+/* Animation smooth lors du drop */
+.rbc-event {
+  transition: all 0.2s ease;
+}
+
+/* Feedback visuel amélioré */
+.rbc-event:hover {
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  transform: translateY(-1px);
+  z-index: 100;
+}
+
+/* 🎓 Style pour l'indicateur de chargement */
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: .5;
+  }
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-pulse {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.animate-spin {
+  animation: spin 1s linear infinite;
+}

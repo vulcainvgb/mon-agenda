@@ -1,0 +1,44 @@
+Date : 2025-10-09 11:50:23
+Directory : c:\Users\flore\Documents\Projet Katja\Projet\mon-agenda\app
+Total : 10 files,  1597 codes, 55 comments, 211 blanks, all 1863 lines
+
+Languages
++----------------+------------+------------+------------+------------+------------+
+| language       | files      | code       | comment    | blank      | total      |
++----------------+------------+------------+------------+------------+------------+
+| TypeScript JSX |          9 |      1,575 |         55 |        206 |      1,836 |
+| PostCSS        |          1 |         22 |          0 |          5 |         27 |
++----------------+------------+------------+------------+------------+------------+
+
+Directories
++-----------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+| path                                                                              | files      | code       | comment    | blank      | total      |
++-----------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+| .                                                                                 |         10 |      1,597 |         55 |        211 |      1,863 |
+| . (Files)                                                                         |          3 |         79 |          3 |         12 |         94 |
+| calendrier                                                                        |          1 |        249 |          7 |         34 |        290 |
+| components                                                                        |          1 |         60 |          1 |          8 |         69 |
+| dashboard                                                                         |          1 |        101 |          4 |         11 |        116 |
+| login                                                                             |          1 |        103 |          7 |         16 |        126 |
+| projets                                                                           |          2 |        533 |         17 |         69 |        619 |
+| projets (Files)                                                                   |          1 |        533 |         17 |         68 |        618 |
+| projets\[id]                                                                      |          1 |          0 |          0 |          1 |          1 |
+| taches                                                                            |          1 |        472 |         16 |         61 |        549 |
++-----------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+
+Files
++-----------------------------------------------------------------------------------+----------------+------------+------------+------------+------------+
+| filename                                                                          | language       | code       | comment    | blank      | total      |
++-----------------------------------------------------------------------------------+----------------+------------+------------+------------+------------+
+| c:\Users\flore\Documents\Projet Katja\Projet\mon-agenda\app\calendrier\page.tsx   | TypeScript JSX |        249 |          7 |         34 |        290 |
+| c:\Users\flore\Documents\Projet Katja\Projet\mon-agenda\app\components\Navbar.tsx | TypeScript JSX |         60 |          1 |          8 |         69 |
+| c:\Users\flore\Documents\Projet Katja\Projet\mon-agenda\app\dashboard\page.tsx    | TypeScript JSX |        101 |          4 |         11 |        116 |
+| c:\Users\flore\Documents\Projet Katja\Projet\mon-agenda\app\globals.css           | PostCSS        |         22 |          0 |          5 |         27 |
+| c:\Users\flore\Documents\Projet Katja\Projet\mon-agenda\app\layout.tsx            | TypeScript JSX |         23 |          0 |          3 |         26 |
+| c:\Users\flore\Documents\Projet Katja\Projet\mon-agenda\app\login\page.tsx        | TypeScript JSX |        103 |          7 |         16 |        126 |
+| c:\Users\flore\Documents\Projet Katja\Projet\mon-agenda\app\page.tsx              | TypeScript JSX |         34 |          3 |          4 |         41 |
+| c:\Users\flore\Documents\Projet Katja\Projet\mon-agenda\app\projets\[id]\page.tsx | TypeScript JSX |          0 |          0 |          1 |          1 |
+| c:\Users\flore\Documents\Projet Katja\Projet\mon-agenda\app\projets\page.tsx      | TypeScript JSX |        533 |         17 |         68 |        618 |
+| c:\Users\flore\Documents\Projet Katja\Projet\mon-agenda\app\taches\page.tsx       | TypeScript JSX |        472 |         16 |         61 |        549 |
+| Total                                                                             |                |      1,597 |         55 |        211 |      1,863 |
++-----------------------------------------------------------------------------------+----------------+------------+------------+------------+------------+
