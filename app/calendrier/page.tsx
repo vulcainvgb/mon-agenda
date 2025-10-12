@@ -13,6 +13,9 @@ import moment from 'moment';
 import 'moment/locale/fr';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 import EventModal from '../../components/EventModal';
+import GoogleCalendarSync from '../../components/GoogleCalendarSync';
+
+
 
 moment.locale('fr');
 const localizer = momentLocalizer(moment);
@@ -28,6 +31,25 @@ interface CalendarEvent {
 
 export default function CalendrierPage() {
   const router = useRouter();
+    useEffect(() => {
+    const debugSession = async () => {
+      const { data: { session }, error } = await supabase.auth.getSession();
+      console.log('=== DEBUG SESSION CALENDRIER ===');
+      console.log('Session existe:', !!session);
+      console.log('User ID:', session?.user?.id);
+      console.log('Email:', session?.user?.email);
+      console.log('Erreur:', error);
+      
+      // Vérifier les cookies
+      console.log('Cookies:', document.cookie);
+    };
+    debugSession();
+  }, []);
+
+  useEffect(() => {
+    checkUser();
+    loadData();
+  }, []);
   const [loading, setLoading] = useState(true);
   const [projects, setProjects] = useState<Project[]>([]);
   const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>([]);
@@ -56,10 +78,18 @@ export default function CalendrierPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const checkUser = async () => {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) router.push('/login');
-  };
+ const checkUser = async () => {
+  const { data: { session } } = await supabase.auth.getSession();
+  console.log('🔐 checkUser - Session:', {
+    hasSession: !!session,
+    userId: session?.user?.id
+  });
+  
+  if (!session) {
+    console.log('⚠️ Pas de session, redirection vers /login');
+    router.push('/login');
+  }
+};
 
   const loadData = async () => {
     try {
@@ -120,6 +150,7 @@ export default function CalendrierPage() {
     console.log('🔍 Parsing:', dateStr, '→', cleaned);
     
     // Parser manuellement pour éviter la conversion timezone
+    
     const parts = cleaned.split('T');
     if (parts.length !== 2) {
       console.warn('⚠️ Format inattendu:', dateStr);
@@ -368,7 +399,12 @@ export default function CalendrierPage() {
               Nouvel événement
             </button>
           </div>
+          
+          <div className="mb-4">
+            <GoogleCalendarSync />
+        </div>
 
+          
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 relative" style={{ height: '700px' }}>
             {isDragging && (
               <div className="absolute top-4 right-4 z-10 bg-blue-100 text-blue-700 px-4 py-2 rounded-lg shadow-lg flex items-center gap-2">

@@ -89,3 +89,83 @@ export interface ChartData {
   value: number;
   color?: string;
 }
+
+export interface Contact {
+  id: string;
+  user_id: string;
+  first_name: string;
+  last_name: string;
+  email?: string;
+  phone?: string;
+  company?: string;
+  job_title?: string;
+  address?: string;
+  city?: string;
+  country?: string;
+  notes?: string;
+  tags?: string[];
+  status: 'active' | 'archived';
+  created_at: string;
+  updated_at: string;
+}
+
+export interface EventContact {
+  id: string;
+  event_id: string;
+  contact_id: string;
+  contact?: Contact;
+  role: 'participant' | 'organizer' | 'speaker';
+  rsvp_status: 'pending' | 'accepted' | 'declined';
+  notified: boolean;
+}
+
+export interface TaskContact {
+  id: string;
+  task_id: string;
+  contact_id: string;
+  contact?: Contact;
+  role: 'assigned' | 'reviewer' | 'observer';
+  notified: boolean;
+}
+
+// Google Auth
+export interface GoogleAuth {
+  id: string;
+  user_id: string;
+  access_token: string;
+  refresh_token: string;
+  token_expires_at: string;
+  google_email?: string;
+  calendar_id: string;
+  last_sync_at?: string;
+  sync_enabled: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+// Google Calendar Event (format de l'API)
+export interface GoogleCalendarEvent {
+  id: string;
+  summary: string;
+  description?: string;
+  start: {
+    dateTime: string;
+    timeZone?: string;
+  };
+  end: {
+    dateTime: string;
+    timeZone?: string;
+  };
+  updated: string;
+  status: string;
+  colorId?: string;
+}
+
+// Résultat de synchronisation
+export interface SyncResult {
+  success: boolean;
+  created: number;
+  updated: number;
+  deleted: number;
+  errors: string[];
+}
