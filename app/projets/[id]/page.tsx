@@ -18,6 +18,7 @@ interface Project {
   end_date?: string
   created_at?: string
   updated_at?: string
+  time_spent?: number
 }
 
 interface Task {
@@ -277,7 +278,7 @@ export default function ProjectDetailPage() {
         
         {/* Infos projet */}
         <div className="bg-white rounded-xl p-6 shadow-md mb-8">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {/* Progression */}
             <div>
               <h3 className="text-sm font-medium text-gray-500 mb-2">Progression</h3>
@@ -328,6 +329,28 @@ export default function ProjectDetailPage() {
                 )}
               </div>
             )}
+            {/* Temps passé */}
+            <div>
+              <h3 className="text-sm font-medium text-gray-500 mb-2">Temps passé</h3>
+              <div className="flex items-center gap-2">
+                <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span className="text-2xl font-bold text-blue-600">
+                  {(() => {
+                    const hours = Math.floor((project.time_spent || 0) / 60);
+                    const minutes = (project.time_spent || 0) % 60;
+                    if (hours === 0 && minutes === 0) return '0h';
+                    if (hours === 0) return `${minutes}min`;
+                    if (minutes === 0) return `${hours}h`;
+                    return `${hours}h ${minutes}min`;
+                  })()}
+                </span>
+              </div>
+              <p className="text-sm text-gray-600 mt-1">
+                Sur {events.length} événement{events.length > 1 ? 's' : ''}
+              </p>
+            </div>
           </div>
         </div>
         

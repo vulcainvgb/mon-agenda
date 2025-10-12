@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import TaskTimer from '@/components/TaskTimer';
 
 interface Task {
   id: string
@@ -65,6 +66,26 @@ export default function TachesPage() {
     }
   }, [user])
   
+  const updateTaskTime = async (taskId: string, newTimeMinutes: number) => {
+  const { error } = await supabase
+    .from('tasks')
+    .update({ 
+      time_spent: newTimeMinutes,
+      // Si on modifie le temps d'une tâche en cours, réinitialiser started_at
+      started_at: null
+    })
+    .eq('id', taskId);
+  
+  if (error) {
+    console.error('Erreur mise à jour temps:', error);
+    alert('Erreur lors de la mise à jour du temps');
+  } else {
+    // Recharger les données
+    loadTasks(); // ou loadProjectData() selon votre page
+  }
+};
+
+
   const checkUser = async () => {
     const { data } = await supabase.auth.getUser()
     if (data.user) {
@@ -461,6 +482,12 @@ export default function TachesPage() {
                           📅 Échéance : {new Date(task.due_date).toLocaleDateString('fr-FR')}
                         </p>
                       )}
+
+                      <TaskTimer 
+                        task={task} 
+                        onUpdateTime={updateTaskTime}
+                        className="mb-2"
+                      />
                       
                       {project && (
                         <Link
@@ -540,6 +567,12 @@ export default function TachesPage() {
                           📅 Échéance : {new Date(task.due_date).toLocaleDateString('fr-FR')}
                         </p>
                       )}
+
+                      <TaskTimer 
+                        task={task} 
+                        onUpdateTime={updateTaskTime}
+                        className="mb-2"
+                      />
                       
                       {project && (
                         <Link
@@ -625,6 +658,12 @@ export default function TachesPage() {
                           📅 Échéance : {new Date(task.due_date).toLocaleDateString('fr-FR')}
                         </p>
                       )}
+
+                      <TaskTimer 
+                        task={task} 
+                        onUpdateTime={updateTaskTime}
+                        className="mb-2"
+                      />
                       
                       {project && (
                         <Link

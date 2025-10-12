@@ -34,6 +34,7 @@ export interface Project {
   budget_spent?: number;
   start_date?: string;
   end_date?: string;
+  time_spent?: number;
 }
 
 export interface DashboardStats {

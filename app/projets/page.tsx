@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import ProjectTimeDisplay from '@/components/ProjectTimeDisplay';
 
 interface Project {
   id: string
@@ -18,6 +19,7 @@ interface Project {
   end_date?: string
   created_at?: string
   updated_at?: string
+  time_spent?: number
 }
 
 interface Task {
@@ -528,9 +530,25 @@ export default function ProjetsPage() {
                     </div>
                     
                     {/* Stats */}
-                    <div className="flex gap-4 text-sm text-gray-600 mb-4">
+                    <div className="flex flex-wrap gap-3 text-sm text-gray-600 mb-4">
                       <span>✅ {stats.tasksDone}/{stats.tasks} tâches</span>
                       <span>📅 {stats.events} événements</span>
+                      {/* Affichage du temps passé */}
+                      <div className="flex items-center gap-1">
+                        <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <span className="font-medium text-blue-600">
+                          {(() => {
+                            const hours = Math.floor((project.time_spent || 0) / 60);
+                            const minutes = (project.time_spent || 0) % 60;
+                            if (hours === 0 && minutes === 0) return '0h';
+                            if (hours === 0) return `${minutes}min`;
+                            if (minutes === 0) return `${hours}h`;
+                            return `${hours}h ${minutes}min`;
+                          })()}
+                        </span>
+                      </div>
                     </div>
                     
                     {/* Budget */}
