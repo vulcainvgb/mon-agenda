@@ -21,6 +21,8 @@ export interface Task {
   priority: 'low' | 'medium' | 'high';
   project_id?: string;
   project?: Project;
+  time_spent?: number;      
+  started_at?: string | null; 
 }
 
 export interface Project {

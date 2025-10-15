@@ -2,6 +2,7 @@
 
 import { Event, Project } from '../lib/types';
 import ProjectTimeDisplay from './ProjectTimeDisplay';
+import { GOOGLE_CALENDAR_COLORS } from '../lib/google-colors';
 
 interface EventModalProps {
   isOpen: boolean;
@@ -20,6 +21,21 @@ interface EventModalProps {
   onSave: () => void;
   onDelete: () => void;
 }
+
+// 🎨 Palette de couleurs Google Calendar avec noms français
+const GOOGLE_COLORS = [
+  { hex: '#a4bdfc', name: 'Lavande' },
+  { hex: '#7ae7bf', name: 'Sauge' },
+  { hex: '#dbadff', name: 'Raisin' },
+  { hex: '#ff887c', name: 'Flamant' },
+  { hex: '#fbd75b', name: 'Banane' },
+  { hex: '#ffb878', name: 'Mandarine' },
+  { hex: '#46d6db', name: 'Turquoise' },
+  { hex: '#e1e1e1', name: 'Graphite' },
+  { hex: '#5484ed', name: 'Bleuet' },
+  { hex: '#51b749', name: 'Basilic' },
+  { hex: '#dc2127', name: 'Tomate' }
+];
 
 export default function EventModal({
   isOpen,
@@ -63,6 +79,9 @@ export default function EventModal({
   };
 
   const eventDuration = calculateEventDuration();
+
+  // Trouver le nom de la couleur sélectionnée
+  const selectedColorName = GOOGLE_COLORS.find(c => c.hex === formData.color)?.name || 'Personnalisée';
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -202,24 +221,52 @@ export default function EventModal({
               )}
             </div>
 
-            {/* Couleur */}
+            {/* Couleur - Palette Google Calendar */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Couleur
+                Couleur : <span className="text-gray-500 font-normal">{selectedColorName}</span>
               </label>
-              <div className="flex gap-2">
-                {['#3b82f6', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#ef4444'].map((color) => (
+              <div className="grid grid-cols-6 sm:grid-cols-11 gap-2">
+                {GOOGLE_COLORS.map((colorOption) => (
                   <button
-                    key={color}
+                    key={colorOption.hex}
                     type="button"
-                    onClick={() => setFormData({ ...formData, color })}
-                    className={`w-10 h-10 rounded-lg transition-all ${
-                      formData.color === color ? 'ring-2 ring-offset-2 ring-gray-400' : ''
+                    onClick={() => setFormData({ ...formData, color: colorOption.hex })}
+                    className={`group relative flex flex-col items-center transition-all ${
+                      formData.color === colorOption.hex 
+                        ? 'transform scale-110' 
+                        : 'hover:scale-105'
                     }`}
-                    style={{ backgroundColor: color }}
-                  />
+                    title={colorOption.name}
+                  >
+                    <div 
+                      className={`w-10 h-10 rounded-full transition-all ${
+                        formData.color === colorOption.hex 
+                          ? 'ring-3 ring-offset-2 ring-gray-900 shadow-lg' 
+                          : 'hover:shadow-md'
+                      }`}
+                      style={{ backgroundColor: colorOption.hex }}
+                    >
+                      {/* Checkmark pour la couleur sélectionnée */}
+                      {formData.color === colorOption.hex && (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <svg className="w-5 h-5 text-white drop-shadow-lg" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                          </svg>
+                        </div>
+                      )}
+                    </div>
+                    {/* Nom de la couleur au survol (caché sur mobile) */}
+                    <span className="hidden sm:block absolute -bottom-6 left-1/2 transform -translate-x-1/2 whitespace-nowrap text-xs text-gray-600 opacity-0 group-hover:opacity-100 transition-opacity bg-white px-2 py-1 rounded shadow-sm">
+                      {colorOption.name}
+                    </span>
+                  </button>
                 ))}
               </div>
+              {/* Note pour mobile */}
+              <p className="mt-3 text-xs text-gray-500 sm:hidden">
+                💡 Touchez une couleur pour la sélectionner
+              </p>
             </div>
           </div>
 

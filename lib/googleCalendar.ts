@@ -1,6 +1,7 @@
 // lib/googleCalendar.ts
 import { google } from 'googleapis';
-import { createClient } from '@supabase/supabase-js'; 
+import { createClient } from '@supabase/supabase-js';
+import { getColorFromGoogleId, findClosestGoogleColorId } from './google-colors'; // ✅ Import des fonctions de couleur
 
 // DEBUG : Vérifier que la clé est chargée
 console.log('🔑 SUPABASE_SERVICE_ROLE_KEY présente:', !!process.env.SUPABASE_SERVICE_ROLE_KEY);
@@ -279,122 +280,125 @@ export class GoogleCalendarService {
    * Export des événements vers Google Calendar
    */
   private async exportToGoogle(
-  calendar: any,
-  userId: string,
-  calendarId: string,
-  lastSyncAt: Date
-) {
-  const result = { exported: 0, conflicts: 0, errors: [] as string[] };
+    calendar: any,
+    userId: string,
+    calendarId: string,
+    lastSyncAt: Date
+  ) {
+    const result = { exported: 0, conflicts: 0, errors: [] as string[] };
 
-  try {
-    // Récupérer les événements locaux modifiés depuis la dernière synchro
-    const { data: localEvents, error } = await supabase
-      .from('events')
-      .select('*')
-      .eq('user_id', userId)
-      .gte('updated_at', lastSyncAt.toISOString());
+    try {
+      // Récupérer les événements locaux modifiés depuis la dernière synchro
+      const { data: localEvents, error } = await supabase
+        .from('events')
+        .select('*')
+        .eq('user_id', userId)
+        .gte('updated_at', lastSyncAt.toISOString());
 
-    if (error) {
-      result.errors.push(`Erreur récupération locale: ${error.message}`);
-      return result;
-    }
+      if (error) {
+        result.errors.push(`Erreur récupération locale: ${error.message}`);
+        return result;
+      }
 
-    for (const localEvent of localEvents || []) {
-      try {
-        // CAS 1 : L'événement a déjà un google_event_id
-        if (localEvent.google_event_id) {
-          try {
-            // Vérifier si l'événement existe toujours sur Google
-            const gEvent = await calendar.events.get({
+      for (const localEvent of localEvents || []) {
+        try {
+          // CAS 1 : L'événement a déjà un google_event_id
+          if (localEvent.google_event_id) {
+            try {
+              // Vérifier si l'événement existe toujours sur Google
+              const gEvent = await calendar.events.get({
+                calendarId,
+                eventId: localEvent.google_event_id,
+              });
+
+              const googleUpdatedAt = new Date(gEvent.data.updated);
+              const localUpdatedAt = new Date(localEvent.updated_at);
+
+              // Comparer les timestamps
+              if (localUpdatedAt > googleUpdatedAt) {
+                // Local plus récent → mettre à jour Google
+                await this.updateGoogleEvent(
+                  calendar,
+                  calendarId,
+                  localEvent.google_event_id,
+                  localEvent
+                );
+                result.exported++;
+                console.log(`✅ Événement mis à jour sur Google: ${localEvent.title}`);
+              } else {
+                // Google plus récent → pas de changement
+                result.conflicts++;
+              }
+            } catch (error: any) {
+              if (error.code === 404) {
+                // L'événement n'existe plus sur Google → le recréer
+                console.log(`⚠️ Événement introuvable sur Google, recréation: ${localEvent.title}`);
+                const newGoogleEventId = await this.createGoogleEvent(
+                  calendar,
+                  calendarId,
+                  localEvent
+                );
+                await this.updateLocalEventGoogleId(localEvent.id, newGoogleEventId);
+                result.exported++;
+              } else {
+                throw error;
+              }
+            }
+          } 
+          // CAS 2 : Nouvel événement sans google_event_id
+          else {
+            // Vérifier qu'il n'existe pas déjà sur Google (éviter les doublons)
+            const existingEvents = await calendar.events.list({
               calendarId,
-              eventId: localEvent.google_event_id,
+              q: localEvent.title,
+              timeMin: new Date(localEvent.start_time).toISOString(),
+              timeMax: new Date(localEvent.end_time).toISOString(),
+              maxResults: 10,
             });
 
-            const googleUpdatedAt = new Date(gEvent.data.updated);
-            const localUpdatedAt = new Date(localEvent.updated_at);
-
-            // Comparer les timestamps
-            if (localUpdatedAt > googleUpdatedAt) {
-              // Local plus récent → mettre à jour Google
-              await this.updateGoogleEvent(
-                calendar,
-                calendarId,
-                localEvent.google_event_id,
-                localEvent
-              );
-              result.exported++;
-              console.log(`✅ Événement mis à jour sur Google: ${localEvent.title}`);
-            } else {
-              // Google plus récent → pas de changement
-              result.conflicts++;
-            }
-          } catch (error: any) {
-            if (error.code === 404) {
-              // L'événement n'existe plus sur Google → le recréer
-              console.log(`⚠️ Événement introuvable sur Google, recréation: ${localEvent.title}`);
-              const newGoogleEventId = await this.createGoogleEvent(
-                calendar,
-                calendarId,
-                localEvent
-              );
-              await this.updateLocalEventGoogleId(localEvent.id, newGoogleEventId);
-              result.exported++;
-            } else {
-              throw error;
-            }
-          }
-        } 
-        // CAS 2 : Nouvel événement sans google_event_id
-        else {
-          // NOUVEAU : Vérifier qu'il n'existe pas déjà sur Google (éviter les doublons)
-          const existingEvents = await calendar.events.list({
-            calendarId,
-            q: localEvent.title, // Recherche par titre
-            timeMin: new Date(localEvent.start_time).toISOString(),
-            timeMax: new Date(localEvent.end_time).toISOString(),
-            maxResults: 10,
-          });
-
-          // Si un événement similaire existe déjà, le lier au lieu de créer un doublon
-          const similarEvent = existingEvents.data.items?.find((gEvent: any) => 
-            gEvent.summary === localEvent.title &&
-            Math.abs(new Date(gEvent.start.dateTime).getTime() - new Date(localEvent.start_time).getTime()) < 60000 // 1min de marge
-          );
-
-          if (similarEvent) {
-            // Lier l'événement existant
-            console.log(`🔗 Événement existant trouvé sur Google, liaison: ${localEvent.title}`);
-            await this.updateLocalEventGoogleId(localEvent.id, similarEvent.id);
-            result.exported++;
-          } else {
-            // Créer un nouvel événement
-            console.log(`➕ Création nouvel événement sur Google: ${localEvent.title}`);
-            const googleEventId = await this.createGoogleEvent(
-              calendar,
-              calendarId,
-              localEvent
+            const similarEvent = existingEvents.data.items?.find((gEvent: any) => 
+              gEvent.summary === localEvent.title &&
+              Math.abs(new Date(gEvent.start.dateTime).getTime() - new Date(localEvent.start_time).getTime()) < 60000
             );
-            await this.updateLocalEventGoogleId(localEvent.id, googleEventId);
-            result.exported++;
+
+            if (similarEvent) {
+              // Lier l'événement existant
+              console.log(`🔗 Événement existant trouvé sur Google, liaison: ${localEvent.title}`);
+              await this.updateLocalEventGoogleId(localEvent.id, similarEvent.id);
+              result.exported++;
+            } else {
+              // Créer un nouvel événement
+              console.log(`➕ Création nouvel événement sur Google: ${localEvent.title}`);
+              const googleEventId = await this.createGoogleEvent(
+                calendar,
+                calendarId,
+                localEvent
+              );
+              await this.updateLocalEventGoogleId(localEvent.id, googleEventId);
+              result.exported++;
+            }
           }
+        } catch (error: any) {
+          console.error(`❌ Erreur export "${localEvent.title}":`, error.message);
+          result.errors.push(`Erreur export ${localEvent.title}: ${error.message}`);
         }
-      } catch (error: any) {
-        console.error(`❌ Erreur export "${localEvent.title}":`, error.message);
-        result.errors.push(`Erreur export ${localEvent.title}: ${error.message}`);
       }
+    } catch (error: any) {
+      result.errors.push(`Erreur export: ${error.message}`);
     }
-  } catch (error: any) {
-    result.errors.push(`Erreur export: ${error.message}`);
+
+    return result;
   }
 
-  return result;
-}
   /**
    * Crée un événement local depuis Google
    */
   private async createLocalEvent(userId: string, gEvent: any) {
     const startTime = this.parseGoogleDateTime(gEvent.start);
     const endTime = this.parseGoogleDateTime(gEvent.end);
+    const color = getColorFromGoogleId(gEvent.colorId); // ✅ Récupération de la couleur
+
+    console.log(`🎨 Import événement "${gEvent.summary}" avec colorId ${gEvent.colorId} → ${color}`);
 
     await supabase.from('events').insert({
       user_id: userId,
@@ -405,7 +409,7 @@ export class GoogleCalendarService {
       google_event_id: gEvent.id,
       sync_status: 'synced',
       last_synced_at: new Date().toISOString(),
-      color: '#8b5cf6',
+      color: color, // ✅ Utilisation de la couleur convertie
     });
   }
 
@@ -415,6 +419,9 @@ export class GoogleCalendarService {
   private async updateLocalEvent(eventId: string, gEvent: any) {
     const startTime = this.parseGoogleDateTime(gEvent.start);
     const endTime = this.parseGoogleDateTime(gEvent.end);
+    const color = getColorFromGoogleId(gEvent.colorId); // ✅ Récupération de la couleur
+
+    console.log(`🎨 Update événement "${gEvent.summary}" avec colorId ${gEvent.colorId} → ${color}`);
 
     await supabase
       .from('events')
@@ -425,6 +432,7 @@ export class GoogleCalendarService {
         end_time: endTime,
         sync_status: 'synced',
         last_synced_at: new Date().toISOString(),
+        color: color, // ✅ Mise à jour de la couleur
       })
       .eq('id', eventId);
   }
@@ -437,6 +445,10 @@ export class GoogleCalendarService {
     calendarId: string,
     localEvent: any
   ): Promise<string> {
+    const colorId = findClosestGoogleColorId(localEvent.color); // ✅ Conversion de la couleur locale
+    
+    console.log(`🎨 Export événement "${localEvent.title}" avec couleur ${localEvent.color} → colorId ${colorId}`);
+
     const response = await calendar.events.insert({
       calendarId,
       requestBody: {
@@ -444,7 +456,7 @@ export class GoogleCalendarService {
         description: localEvent.description || '',
         start: this.formatDateTimeForGoogle(localEvent.start_time),
         end: this.formatDateTimeForGoogle(localEvent.end_time),
-        colorId: '9', // Couleur bleue par défaut
+        colorId: colorId, // ✅ Utilisation de la couleur convertie
       },
     });
 
@@ -460,6 +472,10 @@ export class GoogleCalendarService {
     googleEventId: string,
     localEvent: any
   ) {
+    const colorId = findClosestGoogleColorId(localEvent.color); // ✅ Conversion de la couleur locale
+    
+    console.log(`🎨 Update Google événement "${localEvent.title}" avec couleur ${localEvent.color} → colorId ${colorId}`);
+
     await calendar.events.update({
       calendarId,
       eventId: googleEventId,
@@ -468,6 +484,7 @@ export class GoogleCalendarService {
         description: localEvent.description || '',
         start: this.formatDateTimeForGoogle(localEvent.start_time),
         end: this.formatDateTimeForGoogle(localEvent.end_time),
+        colorId: colorId, // ✅ Utilisation de la couleur convertie
       },
     });
   }

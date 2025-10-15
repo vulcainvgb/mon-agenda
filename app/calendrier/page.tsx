@@ -9,15 +9,16 @@ import withDragAndDrop from 'react-big-calendar/lib/addons/dragAndDrop';
 import { DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 import 'react-big-calendar/lib/addons/dragAndDrop/styles.css';
-import moment from 'moment';
+import moment from 'moment-timezone'; // ✅ Import moment-timezone
 import 'moment/locale/fr';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 import EventModal from '../../components/EventModal';
 import GoogleCalendarSync from '../../components/GoogleCalendarSync';
 
-
-
+// ✅ Configuration du timezone par défaut
+moment.tz.setDefault('Europe/Paris');
 moment.locale('fr');
+
 const localizer = momentLocalizer(moment);
 const DragAndDropCalendar = withDragAndDrop(Calendar);
 
@@ -29,27 +30,49 @@ interface CalendarEvent {
   resource: Event;
 }
 
+// ✅ UTILITAIRES TIMEZONE CENTRALISÉS
+const timezoneUtils = {
+  // Parse une date de Supabase (format: "2025-01-15 15:00:00")
+  // La date est stockée sans timezone, on la considère comme heure de Paris
+  parseFromDB: (dateStr: string | Date): Date => {
+    if (dateStr instanceof Date) return dateStr;
+    
+    // Format: "2025-01-15 15:00:00" ou "2025-01-15T15:00:00"
+    const cleaned = String(dateStr)
+      .replace(' ', 'T')
+      .split('.')[0]
+      .split('+')[0]
+      .split('Z')[0];
+    
+    console.log('📥 DB → JS:', dateStr, '→', cleaned);
+    
+    // Parser en tant qu'heure de Paris
+    const parsed = moment.tz(cleaned, 'Europe/Paris');
+    const result = parsed.toDate();
+    
+    console.log('   Résultat:', result.toLocaleString('fr-FR'));
+    return result;
+  },
+
+  // Formate une date JavaScript pour Supabase
+  // On convertit en heure de Paris puis on formate sans timezone
+  formatForDB: (date: Date): string => {
+    const parisTime = moment(date).tz('Europe/Paris');
+    const formatted = parisTime.format('YYYY-MM-DD HH:mm:ss');
+    
+    console.log('💾 JS → DB:', date.toLocaleString('fr-FR'), '→', formatted);
+    return formatted;
+  },
+
+  // Pour les inputs datetime-local (format ISO sans timezone)
+  formatForInput: (date: Date | string): string => {
+    const momentDate = moment(date).tz('Europe/Paris');
+    return momentDate.format('YYYY-MM-DDTHH:mm');
+  }
+};
+
 export default function CalendrierPage() {
   const router = useRouter();
-    useEffect(() => {
-    const debugSession = async () => {
-      const { data: { session }, error } = await supabase.auth.getSession();
-      console.log('=== DEBUG SESSION CALENDRIER ===');
-      console.log('Session existe:', !!session);
-      console.log('User ID:', session?.user?.id);
-      console.log('Email:', session?.user?.email);
-      console.log('Erreur:', error);
-      
-      // Vérifier les cookies
-      console.log('Cookies:', document.cookie);
-    };
-    debugSession();
-  }, []);
-
-  useEffect(() => {
-    checkUser();
-    loadData();
-  }, []);
   const [loading, setLoading] = useState(true);
   const [projects, setProjects] = useState<Project[]>([]);
   const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>([]);
@@ -68,28 +91,61 @@ export default function CalendrierPage() {
   });
 
   useEffect(() => {
+    const debugSession = async () => {
+      const { data: { session }, error } = await supabase.auth.getSession();
+      console.log('=== DEBUG SESSION CALENDRIER ===');
+      console.log('Session existe:', !!session);
+      console.log('User ID:', session?.user?.id);
+      console.log('Email:', session?.user?.email);
+      console.log('Timezone:', Intl.DateTimeFormat().resolvedOptions().timeZone);
+      console.log('Offset:', new Date().getTimezoneOffset(), 'minutes');
+    };
+    debugSession();
+  }, []);
+
+  useEffect(() => {
     checkUser();
     loadData();
     
-    // 🎓 POLLING DÉSACTIVÉ TEMPORAIREMENT POUR DEBUG
-    // const interval = setInterval(loadData, 3000);
-    // return () => clearInterval(interval);
-    
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // Polling toutes les 3 secondes
+    const interval = setInterval(loadData, 3000);
+    return () => clearInterval(interval);
   }, []);
 
- const checkUser = async () => {
-  const { data: { session } } = await supabase.auth.getSession();
-  console.log('🔐 checkUser - Session:', {
-    hasSession: !!session,
-    userId: session?.user?.id
-  });
-  
-  if (!session) {
-    console.log('⚠️ Pas de session, redirection vers /login');
-    router.push('/login');
-  }
-};
+  // ✅ Ajuster automatiquement l'heure de fin quand l'heure de début change
+  useEffect(() => {
+    if (showModal && formData.start_time) {
+      const startMoment = moment(formData.start_time).tz('Europe/Paris');
+      const endMoment = startMoment.clone().add(1, 'hour');
+      const newEndTime = endMoment.format('YYYY-MM-DDTHH:mm');
+      
+      // Mettre à jour uniquement si l'heure de fin a changé (éviter boucle infinie)
+      if (formData.end_time !== newEndTime) {
+        console.log('⏰ Ajustement automatique heure de fin:', {
+          start: startMoment.format('HH:mm'),
+          end: endMoment.format('HH:mm')
+        });
+        
+        setFormData(prev => ({
+          ...prev,
+          end_time: newEndTime
+        }));
+      }
+    }
+  }, [formData.start_time, showModal]);
+
+  const checkUser = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    console.log('🔐 checkUser - Session:', {
+      hasSession: !!session,
+      userId: session?.user?.id
+    });
+    
+    if (!session) {
+      console.log('⚠️ Pas de session, redirection vers /login');
+      router.push('/login');
+    }
+  };
 
   const loadData = async () => {
     try {
@@ -101,8 +157,7 @@ export default function CalendrierPage() {
         supabase.from('projects').select('*').eq('user_id', user.id)
       ]);
 
-      console.log('🔍 Événements reçus:', eventsRes.data); // DEBUG
-      console.log('🔍 Erreur éventuelle:', eventsRes.error); // DEBUG
+      console.log('🔍 Événements reçus de Supabase:', eventsRes.data);
 
       if (eventsRes.data) {
         convertToCalendarEvents(eventsRes.data);
@@ -116,64 +171,42 @@ export default function CalendrierPage() {
   };
 
   const convertToCalendarEvents = (eventsData: Event[]) => {
-    const converted = eventsData.map(event => ({
-      id: event.id,
-      title: event.title,
-      start: parseDateTime(event.start_time),
-      end: parseDateTime(event.end_time),
-      resource: event
-    }));
+    const converted = eventsData.map(event => {
+      const calEvent = {
+        id: event.id,
+        title: event.title,
+        start: timezoneUtils.parseFromDB(event.start_time),
+        end: timezoneUtils.parseFromDB(event.end_time),
+        resource: event
+      };
+      
+      console.log('📅 Événement converti:', {
+        title: calEvent.title,
+        start: calEvent.start.toLocaleString('fr-FR'),
+        end: calEvent.end.toLocaleString('fr-FR')
+      });
+      
+      return calEvent;
+    });
     
-    console.log('📅 Événements convertis:', converted); // DEBUG
     setCalendarEvents(converted);
   };
 
-  const formatLocalDateTime = (date: Date) => {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    const hours = String(date.getHours()).padStart(2, '0');
-    const minutes = String(date.getMinutes()).padStart(2, '0');
-    const seconds = String(date.getSeconds()).padStart(2, '0');
-    return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
-  };
-
-  // 🎓 FONCTION DE PARSING UNIQUE
-  // Lit les dates de Supabase sans décalage timezone
-  const parseDateTime = (dateStr: string | Date) => {
-    // Si c'est déjà un objet Date, le retourner tel quel
-    if (dateStr instanceof Date) return dateStr;
-    
-    // Format de Supabase: "2025-01-15 15:00:00" ou "2025-01-15T15:00:00"
-    const cleaned = String(dateStr).replace(' ', 'T').split('.')[0].split('+')[0].split('Z')[0];
-    
-    console.log('🔍 Parsing:', dateStr, '→', cleaned);
-    
-    // Parser manuellement pour éviter la conversion timezone
-    
-    const parts = cleaned.split('T');
-    if (parts.length !== 2) {
-      console.warn('⚠️ Format inattendu:', dateStr);
-      return new Date(cleaned);
-    }
-    
-    const [datePart, timePart] = parts;
-    const [year, month, day] = datePart.split('-').map(Number);
-    const [hours, minutes, seconds = 0] = timePart.split(':').map(Number);
-    
-    // Créer la date en LOCAL (pas UTC)
-    const result = new Date(year, month - 1, day, hours, minutes, seconds);
-    
-    console.log('📅 Résultat parsing:', result.toLocaleString('fr-FR'));
-    return result;
-  };
-
   const handleSelectSlot = ({ start, end }: { start: Date; end: Date }) => {
+    // ✅ Forcer end = start + 1 heure pour éviter les problèmes de timezone
+    const startMoment = moment(start).tz('Europe/Paris');
+    const endMoment = startMoment.clone().add(1, 'hour');
+    
+    console.log('🆕 Nouveau slot sélectionné:', {
+      start: startMoment.format('DD/MM/YYYY HH:mm'),
+      end: endMoment.format('DD/MM/YYYY HH:mm')
+    });
+    
     setFormData({
       title: '',
       description: '',
-      start_time: moment(start).format('YYYY-MM-DDTHH:mm'),
-      end_time: moment(end).format('YYYY-MM-DDTHH:mm'),
+      start_time: startMoment.format('YYYY-MM-DDTHH:mm'),
+      end_time: endMoment.format('YYYY-MM-DDTHH:mm'),
       color: '#3b82f6',
       project_id: ''
     });
@@ -183,12 +216,18 @@ export default function CalendrierPage() {
 
   const handleSelectEvent = (event: CalendarEvent) => {
     const fullEvent = event.resource;
+    console.log('📝 Édition événement:', {
+      title: fullEvent.title,
+      start: new Date(fullEvent.start_time).toLocaleString('fr-FR'),
+      end: new Date(fullEvent.end_time).toLocaleString('fr-FR')
+    });
+    
     setSelectedEvent(fullEvent);
     setFormData({
       title: fullEvent.title,
       description: fullEvent.description || '',
-      start_time: moment(fullEvent.start_time).format('YYYY-MM-DDTHH:mm'),
-      end_time: moment(fullEvent.end_time).format('YYYY-MM-DDTHH:mm'),
+      start_time: timezoneUtils.formatForInput(fullEvent.start_time),
+      end_time: timezoneUtils.formatForInput(fullEvent.end_time),
       color: fullEvent.color,
       project_id: fullEvent.project_id || ''
     });
@@ -199,39 +238,21 @@ export default function CalendrierPage() {
     try {
       setIsDragging(true);
       
-      // 🎓 DEBUG: Voir les dates reçues
-      console.log('🎯 DROP - Dates brutes:', { start, end });
-      console.log('🎯 DROP - Dates locales:', { 
-        start: start.toLocaleString('fr-FR'), 
-        end: end.toLocaleString('fr-FR') 
+      console.log('🎯 DROP - Déplacement événement:', {
+        title: event.title,
+        nouvelleStart: start.toLocaleString('fr-FR'),
+        nouvelleFin: end.toLocaleString('fr-FR')
       });
-      console.log('🎯 DROP - Timezone offset:', start.getTimezoneOffset());
       
       // Optimistic update
       const updatedEvents = calendarEvents.map(e => 
-        e.id === event.id ? { ...e, start: start, end: end } : e
+        e.id === event.id ? { ...e, start, end } : e
       );
       setCalendarEvents(updatedEvents);
 
-      // 🎓 NOUVELLE APPROCHE: Extraire directement les composants de la date locale
-      const formatDateDirectly = (date: Date) => {
-        // Utiliser les getters locaux, pas UTC
-        const year = date.getFullYear();
-        const month = String(date.getMonth() + 1).padStart(2, '0');
-        const day = String(date.getDate()).padStart(2, '0');
-        const hours = String(date.getHours()).padStart(2, '0');
-        const minutes = String(date.getMinutes()).padStart(2, '0');
-        const seconds = String(date.getSeconds()).padStart(2, '0');
-        
-        const formatted = `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
-        console.log(`📅 Date ${date.toLocaleString('fr-FR')} → ${formatted}`);
-        return formatted;
-      };
-      
-      const startFormatted = formatDateDirectly(start);
-      const endFormatted = formatDateDirectly(end);
-      
-      console.log('💾 Sauvegarde en DB:', { startFormatted, endFormatted });
+      // Sauvegarde en DB
+      const startFormatted = timezoneUtils.formatForDB(start);
+      const endFormatted = timezoneUtils.formatForDB(end);
 
       const { error } = await supabase
         .from('events')
@@ -245,7 +266,6 @@ export default function CalendrierPage() {
       
       console.log('✅ Événement déplacé avec succès');
       
-      // Attendre un peu avant de recharger pour voir les logs
       setTimeout(() => loadData(), 500);
       setIsDragging(false);
     } catch (error) {
@@ -253,34 +273,42 @@ export default function CalendrierPage() {
       await loadData();
       setIsDragging(false);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [calendarEvents]);
 
   const handleEventResize = useCallback(async ({ event, start, end }: { event: CalendarEvent; start: Date; end: Date }) => {
     try {
       setIsDragging(true);
+      
+      console.log('↔️ RESIZE - Redimensionnement événement:', {
+        title: event.title,
+        nouvelleStart: start.toLocaleString('fr-FR'),
+        nouvelleFin: end.toLocaleString('fr-FR')
+      });
+      
       const updatedEvents = calendarEvents.map(e => 
-        e.id === event.id ? { ...e, start: new Date(start), end: new Date(end) } : e
+        e.id === event.id ? { ...e, start, end } : e
       );
       setCalendarEvents(updatedEvents);
 
       const { error } = await supabase
         .from('events')
         .update({
-          start_time: formatLocalDateTime(new Date(start)),
-          end_time: formatLocalDateTime(new Date(end))
+          start_time: timezoneUtils.formatForDB(start),
+          end_time: timezoneUtils.formatForDB(end)
         })
         .eq('id', event.id);
 
       if (error) throw error;
+      
+      console.log('✅ Événement redimensionné avec succès');
+      
       await loadData();
       setIsDragging(false);
     } catch (error) {
-      console.error('Erreur redimensionnement:', error);
+      console.error('❌ Erreur redimensionnement:', error);
       await loadData();
       setIsDragging(false);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [calendarEvents]);
 
   const handleSave = async () => {
@@ -288,29 +316,38 @@ export default function CalendrierPage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      const startDate = new Date(formData.start_time);
-      const endDate = new Date(formData.end_time);
+      // Les dates viennent des inputs datetime-local
+      const startDate = moment.tz(formData.start_time, 'Europe/Paris').toDate();
+      const endDate = moment.tz(formData.end_time, 'Europe/Paris').toDate();
+
+      console.log('💾 Sauvegarde événement:', {
+        title: formData.title,
+        start: startDate.toLocaleString('fr-FR'),
+        end: endDate.toLocaleString('fr-FR')
+      });
 
       const eventData = {
         user_id: user.id,
         title: formData.title,
         description: formData.description,
-        start_time: formatLocalDateTime(startDate),
-        end_time: formatLocalDateTime(endDate),
+        start_time: timezoneUtils.formatForDB(startDate),
+        end_time: timezoneUtils.formatForDB(endDate),
         color: formData.color,
         project_id: formData.project_id || null
       };
 
       if (selectedEvent) {
         await supabase.from('events').update(eventData).eq('id', selectedEvent.id);
+        console.log('✅ Événement mis à jour');
       } else {
         await supabase.from('events').insert([eventData]);
+        console.log('✅ Événement créé');
       }
 
       setShowModal(false);
       loadData();
     } catch (error) {
-      console.error('Erreur sauvegarde:', error);
+      console.error('❌ Erreur sauvegarde:', error);
     }
   };
 
@@ -319,10 +356,11 @@ export default function CalendrierPage() {
     if (confirm('Supprimer cet événement ?')) {
       try {
         await supabase.from('events').delete().eq('id', selectedEvent.id);
+        console.log('✅ Événement supprimé');
         setShowModal(false);
         loadData();
       } catch (error) {
-        console.error('Erreur suppression:', error);
+        console.error('❌ Erreur suppression:', error);
       }
     }
   };
@@ -380,11 +418,14 @@ export default function CalendrierPage() {
             </div>
             <button
               onClick={() => {
+                const now = moment().tz('Europe/Paris');
+                const later = now.clone().add(1, 'hour'); // ✅ Utiliser .clone() pour ne pas muter 'now'
+                
                 setFormData({
                   title: '',
                   description: '',
-                  start_time: moment().format('YYYY-MM-DDTHH:mm'),
-                  end_time: moment().add(1, 'hour').format('YYYY-MM-DDTHH:mm'),
+                  start_time: now.format('YYYY-MM-DDTHH:mm'),
+                  end_time: later.format('YYYY-MM-DDTHH:mm'),
                   color: '#3b82f6',
                   project_id: ''
                 });
@@ -402,8 +443,7 @@ export default function CalendrierPage() {
           
           <div className="mb-4">
             <GoogleCalendarSync />
-        </div>
-
+          </div>
           
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 relative" style={{ height: '700px' }}>
             {isDragging && (
