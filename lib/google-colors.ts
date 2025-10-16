@@ -1,18 +1,19 @@
 // lib/google-colors.ts
 // Mapping des couleurs Google Calendar (colorId) vers codes hexadécimaux
 
+// Couleurs officielles de Google Calendar (vérifiées)
 export const GOOGLE_CALENDAR_COLORS: Record<string, string> = {
-  '1': '#a4bdfc',  // Lavande
-  '2': '#7ae7bf',  // Sauge
-  '3': '#dbadff',  // Raisin
-  '4': '#ff887c',  // Flamant
-  '5': '#fbd75b',  // Banane
-  '6': '#ffb878',  // Mandarine
-  '7': '#46d6db',  // Turquoise
-  '8': '#e1e1e1',  // Graphite
-  '9': '#5484ed',  // Bleuet
-  '10': '#51b749', // Basilic
-  '11': '#dc2127'  // Tomate
+  '1': '#7986cb',  // Lavande (bleu lavande)
+  '2': '#33b679',  // Sauge (vert sauge)
+  '3': '#8e24aa',  // Raisin (violet)
+  '4': '#e67c73',  // Flamant (rouge corail)
+  '5': '#f6bf26',  // Banane (jaune)
+  '6': '#f4511e',  // Mandarine (orange vif)
+  '7': '#039be5',  // Turquoise (bleu cyan)
+  '8': '#616161',  // Graphite (gris)
+  '9': '#3f51b5',  // Bleuet (bleu indigo)
+  '10': '#0b8043', // Basilic (vert foncé)
+  '11': '#d50000'  // Tomate (rouge)
 };
 
 // Couleur par défaut si aucune couleur n'est définie

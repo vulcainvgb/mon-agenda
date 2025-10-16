@@ -2,6 +2,7 @@
 import { google } from 'googleapis';
 import { createClient } from '@supabase/supabase-js';
 import { getColorFromGoogleId, findClosestGoogleColorId } from './google-colors'; // ✅ Import des fonctions de couleur
+import moment from 'moment-timezone'
 
 // DEBUG : Vérifier que la clé est chargée
 console.log('🔑 SUPABASE_SERVICE_ROLE_KEY présente:', !!process.env.SUPABASE_SERVICE_ROLE_KEY);
@@ -507,41 +508,84 @@ export class GoogleCalendarService {
    * Parse une date/heure de Google Calendar
    */
   private parseGoogleDateTime(dateTime: any): string {
-    if (dateTime.dateTime) {
-      // Événement avec heure précise
-      const date = new Date(dateTime.dateTime);
-      return this.formatLocalDateTime(date);
-    } else if (dateTime.date) {
-      // Événement toute la journée
-      const date = new Date(dateTime.date);
-      return this.formatLocalDateTime(date);
-    }
-    return new Date().toISOString();
+  if (dateTime.dateTime) {
+    // Événement avec heure précise
+    // Google renvoie en format ISO avec Z (UTC)
+    const utcDate = moment.utc(dateTime.dateTime);
+    const parisDate = utcDate.tz('Europe/Paris');
+    
+    console.log('📥 Import depuis Google:', {
+      googleUtc: dateTime.dateTime,
+      parisTime: parisDate.format('YYYY-MM-DD HH:mm'),
+      formatted: this.formatLocalDateTime(parisDate.toDate())
+    });
+    
+    return this.formatLocalDateTime(parisDate.toDate());
+  } else if (dateTime.date) {
+    // Événement toute la journée
+    const date = moment(dateTime.date).tz('Europe/Paris');
+    return this.formatLocalDateTime(date.toDate());
+  }
+  
+  return this.formatLocalDateTime(new Date());
   }
 
-  /**
-   * Formate une date pour Google Calendar
-   */
+
+/**
+ * Formate une date pour Google Calendar
+ * IMPORTANT : Google Calendar attend une date ISO avec timezone explicite
+ */
   private formatDateTimeForGoogle(dateTime: string | Date) {
-    const date = typeof dateTime === 'string' ? new Date(dateTime) : dateTime;
+  // Si c'est une string au format "2025-10-17 14:00:00"
+    if (typeof dateTime === 'string') {
+    // Nettoyer le format
+      const cleaned = dateTime.replace(' ', 'T');
+    
+    // Parser en tant qu'heure de Paris (pas UTC !)
+      const parisDate = moment.tz(cleaned, 'Europe/Paris');
+    
+      console.log('📤 Export vers Google:', {
+        input: dateTime,
+        parisTime: parisDate.format('YYYY-MM-DD HH:mm'),
+        iso: parisDate.toISOString()
+      });
+    
     return {
-      dateTime: date.toISOString(),
-      timeZone: 'Europe/Paris',
+      dateTime: parisDate.toISOString(), // Convertit en UTC
+      timeZone: 'Europe/Paris', // Mais indique la timezone d'origine
     };
   }
-
-  /**
-   * Formate une date en heure locale pour Supabase
-   */
-  private formatLocalDateTime(date: Date): string {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    const hours = String(date.getHours()).padStart(2, '0');
-    const minutes = String(date.getMinutes()).padStart(2, '0');
-    const seconds = String(date.getSeconds()).padStart(2, '0');
-    return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+  
+  // Si c'est déjà un objet Date
+  const parisDate = moment(dateTime).tz('Europe/Paris');
+  
+  console.log('📤 Export vers Google (Date):', {
+    parisTime: parisDate.format('YYYY-MM-DD HH:mm'),
+    iso: parisDate.toISOString()
+  });
+  
+  return {
+    dateTime: parisDate.toISOString(),
+    timeZone: 'Europe/Paris',
+  };
   }
+
+/**
+ * Formate une date en heure locale pour Supabase
+ * Format: "YYYY-MM-DD HH:mm:ss"
+ */
+ private formatLocalDateTime(date: Date): string {
+  const parisDate = moment(date).tz('Europe/Paris');
+  const formatted = parisDate.format('YYYY-MM-DD HH:mm:ss');
+  
+  console.log('💾 Format pour Supabase:', {
+    input: date.toISOString(),
+    paris: parisDate.format('YYYY-MM-DD HH:mm'),
+    output: formatted
+  });
+  
+  return formatted;
+}
 }
 
 class GoogleCalendarServiceSingleton {

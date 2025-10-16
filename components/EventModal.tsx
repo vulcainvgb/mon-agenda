@@ -22,19 +22,19 @@ interface EventModalProps {
   onDelete: () => void;
 }
 
-// 🎨 Palette de couleurs Google Calendar avec noms français
+// 🎨 Palette de couleurs Google Calendar avec noms français (couleurs exactes)
 const GOOGLE_COLORS = [
-  { hex: '#a4bdfc', name: 'Lavande' },
-  { hex: '#7ae7bf', name: 'Sauge' },
-  { hex: '#dbadff', name: 'Raisin' },
-  { hex: '#ff887c', name: 'Flamant' },
-  { hex: '#fbd75b', name: 'Banane' },
-  { hex: '#ffb878', name: 'Mandarine' },
-  { hex: '#46d6db', name: 'Turquoise' },
-  { hex: '#e1e1e1', name: 'Graphite' },
-  { hex: '#5484ed', name: 'Bleuet' },
-  { hex: '#51b749', name: 'Basilic' },
-  { hex: '#dc2127', name: 'Tomate' }
+  { hex: '#7986cb', name: 'Lavande' },
+  { hex: '#33b679', name: 'Sauge' },
+  { hex: '#8e24aa', name: 'Raisin' },
+  { hex: '#e67c73', name: 'Flamant' },
+  { hex: '#f6bf26', name: 'Banane' },
+  { hex: '#f4511e', name: 'Mandarine' },
+  { hex: '#039be5', name: 'Turquoise' },
+  { hex: '#616161', name: 'Graphite' },
+  { hex: '#3f51b5', name: 'Bleuet' },
+  { hex: '#0b8043', name: 'Basilic' },
+  { hex: '#d50000', name: 'Tomate' }
 ];
 
 export default function EventModal({
