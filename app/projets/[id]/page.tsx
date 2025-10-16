@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../../../lib/supabase'
 import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
+import MonthlyReport from '../../../components/MonthlyReport' // ✅ Import du composant rapport
 
 interface Project {
   id: string
@@ -352,6 +353,15 @@ export default function ProjectDetailPage() {
               </p>
             </div>
           </div>
+        </div>
+
+        {/* ✅ NOUVEAU : Rapport mensuel */}
+        <div className="mb-8">
+          <MonthlyReport 
+            projectId={projectId} 
+            projectName={project.name}
+            projectColor={project.color}
+          />
         </div>
         
         {/* Section Tâches */}
