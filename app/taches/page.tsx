@@ -34,13 +34,11 @@ export default function TachesPage() {
   const [isRefreshing, setIsRefreshing] = useState(false)
   const router = useRouter()
   
-  // Formulaire création
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [dueDate, setDueDate] = useState('')
   const [projectId, setProjectId] = useState('')
   
-  // États pour l'édition
   const [editingTask, setEditingTask] = useState<Task | null>(null)
   const [editTitle, setEditTitle] = useState('')
   const [editDescription, setEditDescription] = useState('')
@@ -53,38 +51,32 @@ export default function TachesPage() {
     loadProjects()
   }, [])
   
-  // Polling
   useEffect(() => {
     if (!user) return
-    
     const interval = setInterval(() => {
       loadTasks()
     }, 3000)
-    
     return () => {
       clearInterval(interval)
     }
   }, [user])
   
   const updateTaskTime = async (taskId: string, newTimeMinutes: number) => {
-  const { error } = await supabase
-    .from('tasks')
-    .update({ 
-      time_spent: newTimeMinutes,
-      // Si on modifie le temps d'une tâche en cours, réinitialiser started_at
-      started_at: null
-    })
-    .eq('id', taskId);
-  
-  if (error) {
-    console.error('Erreur mise à jour temps:', error);
-    alert('Erreur lors de la mise à jour du temps');
-  } else {
-    // Recharger les données
-    loadTasks(); // ou loadProjectData() selon votre page
-  }
-};
-
+    const { error } = await supabase
+      .from('tasks')
+      .update({ 
+        time_spent: newTimeMinutes,
+        started_at: null
+      })
+      .eq('id', taskId);
+    
+    if (error) {
+      console.error('Erreur mise à jour temps:', error);
+      alert('Erreur lors de la mise à jour du temps');
+    } else {
+      loadTasks();
+    }
+  };
 
   const checkUser = async () => {
     const { data } = await supabase.auth.getUser()
@@ -97,7 +89,6 @@ export default function TachesPage() {
   
   const loadTasks = async () => {
     setIsRefreshing(true)
-    
     const { data, error } = await supabase
       .from('tasks')
       .select('*')
@@ -108,7 +99,6 @@ export default function TachesPage() {
     } else {
       setTasks(data || [])
     }
-    
     setLoading(false)
     setIsRefreshing(false)
   }
@@ -192,7 +182,6 @@ export default function TachesPage() {
     setEditDueDate(task.due_date || '')
     setEditProjectId(task.project_id || '')
     setShowForm(false)
-    
     setTimeout(() => {
       window.scrollTo({ top: 0, behavior: 'smooth' })
     }, 100)
@@ -238,31 +227,47 @@ export default function TachesPage() {
     return project
   }
   
-  // Filtrer les tâches par statut
   const todoTasks = tasks.filter(t => t.status === 'todo')
   const inProgressTasks = tasks.filter(t => t.status === 'in_progress')
   const doneTasks = tasks.filter(t => t.status === 'done')
   
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <p className="text-xl text-gray-600">⏳ Chargement...</p>
+      <div 
+        className="min-h-screen flex items-center justify-center"
+        style={{ backgroundColor: 'var(--color-bg-secondary)' }}
+      >
+        <p 
+          className="text-xl"
+          style={{ color: 'var(--color-text-secondary)' }}
+        >
+          ⏳ Chargement...
+        </p>
       </div>
     )
   }
   
   return (
-    <main className="min-h-screen bg-gray-50 p-8">
+    <main 
+      className="min-h-screen p-8"
+      style={{ backgroundColor: 'var(--color-bg-secondary)' }}
+    >
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="flex justify-between items-center mb-8">
           <div className="flex items-center gap-4">
-            <h1 className="text-3xl font-bold text-purple-900">
+            <h1 
+              className="text-3xl font-bold"
+              style={{ color: 'var(--color-text-primary)' }}
+            >
               ✅ Mes Tâches
             </h1>
             
             {isRefreshing && (
-              <span className="text-sm text-gray-500 flex items-center gap-2">
+              <span 
+                className="text-sm flex items-center gap-2"
+                style={{ color: 'var(--color-text-secondary)' }}
+              >
                 <span className="animate-spin">🔄</span>
                 Mise à jour...
               </span>
@@ -271,7 +276,7 @@ export default function TachesPage() {
           
           <button
             onClick={() => setShowForm(!showForm)}
-            className="bg-purple-600 text-white px-6 py-2 rounded-lg hover:bg-purple-700 transition-colors font-medium"
+            className="btn-primary font-medium"
           >
             {showForm ? '❌ Annuler' : '➕ Nouvelle tâche'}
           </button>
@@ -279,14 +284,24 @@ export default function TachesPage() {
         
         {/* Formulaire d'édition */}
         {editingTask && (
-          <div className="bg-blue-50 border-2 border-blue-300 p-6 rounded-xl mb-8 shadow-md">
+          <div 
+            className="border-2 p-6 rounded-xl mb-8 shadow-md"
+            style={{
+              backgroundColor: 'var(--color-primary-light)',
+              borderColor: 'var(--color-primary)'
+            }}
+          >
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-semibold text-blue-900">
+              <h2 
+                className="text-xl font-semibold"
+                style={{ color: 'var(--color-primary)' }}
+              >
                 ✏️ Modifier la tâche
               </h2>
               <button
                 onClick={cancelEdit}
-                className="text-gray-500 hover:text-gray-700 font-bold text-xl"
+                className="font-bold text-xl"
+                style={{ color: 'var(--color-text-secondary)' }}
               >
                 ❌
               </button>
@@ -294,50 +309,78 @@ export default function TachesPage() {
             
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label 
+                  className="block text-sm font-medium mb-2"
+                  style={{ color: 'var(--color-text-secondary)' }}
+                >
                   Titre *
                 </label>
                 <input
                   type="text"
                   value={editTitle}
                   onChange={(e) => setEditTitle(e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg px-4 py-2"
+                  className="w-full rounded-lg px-4 py-2 border"
+                  style={{ 
+                    borderColor: 'var(--color-border)',
+                    backgroundColor: 'var(--color-bg-primary)'
+                  }}
                 />
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label 
+                  className="block text-sm font-medium mb-2"
+                  style={{ color: 'var(--color-text-secondary)' }}
+                >
                   Description
                 </label>
                 <textarea
                   value={editDescription}
                   onChange={(e) => setEditDescription(e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg px-4 py-2"
+                  className="w-full rounded-lg px-4 py-2 border"
+                  style={{ 
+                    borderColor: 'var(--color-border)',
+                    backgroundColor: 'var(--color-bg-primary)'
+                  }}
                   rows={3}
                 />
               </div>
               
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label 
+                    className="block text-sm font-medium mb-2"
+                    style={{ color: 'var(--color-text-secondary)' }}
+                  >
                     Date d'échéance
                   </label>
                   <input
                     type="date"
                     value={editDueDate}
                     onChange={(e) => setEditDueDate(e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg px-4 py-2"
+                    className="w-full rounded-lg px-4 py-2 border"
+                    style={{ 
+                      borderColor: 'var(--color-border)',
+                      backgroundColor: 'var(--color-bg-primary)'
+                    }}
                   />
                 </div>
                 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label 
+                    className="block text-sm font-medium mb-2"
+                    style={{ color: 'var(--color-text-secondary)' }}
+                  >
                     Projet
                   </label>
                   <select
                     value={editProjectId}
                     onChange={(e) => setEditProjectId(e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg px-4 py-2"
+                    className="w-full rounded-lg px-4 py-2 border"
+                    style={{ 
+                      borderColor: 'var(--color-border)',
+                      backgroundColor: 'var(--color-bg-primary)'
+                    }}
                   >
                     <option value="">Aucun projet</option>
                     {projects.map(project => (
@@ -352,13 +395,17 @@ export default function TachesPage() {
               <div className="flex gap-2">
                 <button
                   onClick={saveEdit}
-                  className="flex-1 bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors font-semibold"
+                  className="btn-primary flex-1 font-semibold"
                 >
                   💾 Enregistrer les modifications
                 </button>
                 <button
                   onClick={cancelEdit}
-                  className="bg-gray-200 text-gray-700 px-6 py-3 rounded-lg hover:bg-gray-300 transition-colors font-semibold"
+                  className="px-6 py-3 rounded-lg font-semibold"
+                  style={{
+                    backgroundColor: 'var(--color-bg-tertiary)',
+                    color: 'var(--color-text-secondary)'
+                  }}
                 >
                   Annuler
                 </button>
@@ -369,14 +416,26 @@ export default function TachesPage() {
         
         {/* Formulaire de création */}
         {showForm && (
-          <div className="bg-white p-6 rounded-xl mb-8 shadow-md">
-            <h2 className="text-xl font-semibold text-purple-900 mb-4">
+          <div 
+            className="p-6 rounded-xl mb-8 shadow-md border"
+            style={{
+              backgroundColor: 'var(--color-bg-primary)',
+              borderColor: 'var(--color-border)'
+            }}
+          >
+            <h2 
+              className="text-xl font-semibold mb-4"
+              style={{ color: 'var(--color-primary)' }}
+            >
               Créer une tâche
             </h2>
             
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label 
+                  className="block text-sm font-medium mb-2"
+                  style={{ color: 'var(--color-text-secondary)' }}
+                >
                   Titre *
                 </label>
                 <input
@@ -384,44 +443,69 @@ export default function TachesPage() {
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   placeholder="Appeler le client, Faire les courses..."
-                  className="w-full border border-gray-300 rounded-lg px-4 py-2"
+                  className="w-full border rounded-lg px-4 py-2"
+                  style={{ 
+                    borderColor: 'var(--color-border)',
+                    backgroundColor: 'var(--color-bg-primary)'
+                  }}
                 />
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label 
+                  className="block text-sm font-medium mb-2"
+                  style={{ color: 'var(--color-text-secondary)' }}
+                >
                   Description
                 </label>
                 <textarea
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   placeholder="Détails de la tâche..."
-                  className="w-full border border-gray-300 rounded-lg px-4 py-2"
+                  className="w-full border rounded-lg px-4 py-2"
+                  style={{ 
+                    borderColor: 'var(--color-border)',
+                    backgroundColor: 'var(--color-bg-primary)'
+                  }}
                   rows={3}
                 />
               </div>
               
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label 
+                    className="block text-sm font-medium mb-2"
+                    style={{ color: 'var(--color-text-secondary)' }}
+                  >
                     Date d'échéance
                   </label>
                   <input
                     type="date"
                     value={dueDate}
                     onChange={(e) => setDueDate(e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg px-4 py-2"
+                    className="w-full border rounded-lg px-4 py-2"
+                    style={{ 
+                      borderColor: 'var(--color-border)',
+                      backgroundColor: 'var(--color-bg-primary)'
+                    }}
                   />
                 </div>
                 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label 
+                    className="block text-sm font-medium mb-2"
+                    style={{ color: 'var(--color-text-secondary)' }}
+                  >
                     Projet
                   </label>
                   <select
                     value={projectId}
                     onChange={(e) => setProjectId(e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg px-4 py-2"
+                    className="w-full border rounded-lg px-4 py-2"
+                    style={{ 
+                      borderColor: 'var(--color-border)',
+                      backgroundColor: 'var(--color-bg-primary)'
+                    }}
                   >
                     <option value="">Aucun projet</option>
                     {projects.map(project => (
@@ -435,7 +519,7 @@ export default function TachesPage() {
               
               <button
                 onClick={createTask}
-                className="w-full bg-purple-600 text-white px-6 py-3 rounded-lg hover:bg-purple-700 transition-colors font-semibold"
+                className="btn-primary w-full font-semibold"
               >
                 ✨ Créer la tâche
               </button>
@@ -446,39 +530,72 @@ export default function TachesPage() {
         {/* Kanban : 3 colonnes */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {/* Colonne À FAIRE */}
-          <div className="bg-white rounded-xl p-6 shadow-md">
+          <div 
+            className="rounded-xl p-6 shadow-md border"
+            style={{
+              backgroundColor: 'var(--color-bg-primary)',
+              borderColor: 'var(--color-border)'
+            }}
+          >
             <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-bold text-gray-800">
+              <h2 
+                className="text-xl font-bold"
+                style={{ color: 'var(--color-text-primary)' }}
+              >
                 📝 À faire
               </h2>
-              <span className="bg-gray-200 text-gray-700 px-3 py-1 rounded-full text-sm font-semibold">
+              <span 
+                className="px-3 py-1 rounded-full text-sm font-semibold"
+                style={{
+                  backgroundColor: 'var(--color-bg-tertiary)',
+                  color: 'var(--color-text-secondary)'
+                }}
+              >
                 {todoTasks.length}
               </span>
             </div>
             
             <div className="space-y-3">
               {todoTasks.length === 0 ? (
-                <p className="text-gray-400 text-center py-8">Aucune tâche</p>
+                <p 
+                  className="text-center py-8"
+                  style={{ color: 'var(--color-text-tertiary)' }}
+                >
+                  Aucune tâche
+                </p>
               ) : (
                 todoTasks.map(task => {
                   const project = getProjectName(task.project_id)
                   return (
                     <div
                       key={task.id}
-                      className="bg-gray-50 p-4 rounded-lg border border-gray-200 hover:shadow-md transition-shadow"
+                      className="p-4 rounded-lg border hover:shadow-md transition-shadow"
+                      style={{
+                        backgroundColor: 'var(--color-bg-secondary)',
+                        borderColor: 'var(--color-border)'
+                      }}
                     >
-                      <h3 className="font-semibold text-gray-800 mb-2">
+                      <h3 
+                        className="font-semibold mb-2"
+                        style={{ color: 'var(--color-text-primary)' }}
+                      >
                         {task.title}
                       </h3>
                       
                       {task.description && (
-                        <p className="text-sm text-gray-600 mb-3">
+                        <p 
+                          className="text-sm mb-3"
+                          style={{ color: 'var(--color-text-secondary)' }}
+                        >
                           {task.description}
                         </p>
                       )}
                       
                       {task.due_date && (
-                        <p className="text-xs text-gray-500 mb-2">
+                        <p 
+                          className="text-xs mb-2"
+                          style={{ color: 'var(--color-text-tertiary)' }}
+                        >
                           📅 Échéance : {new Date(task.due_date).toLocaleDateString('fr-FR')}
                         </p>
                       )}
@@ -506,19 +623,21 @@ export default function TachesPage() {
                       <div className="flex gap-2">
                         <button
                           onClick={() => startEdit(task)}
-                          className="bg-gray-500 text-white px-3 py-1 rounded text-sm hover:bg-gray-600"
+                          className="text-white px-3 py-1 rounded text-sm"
+                          style={{ backgroundColor: 'var(--color-text-tertiary)' }}
                         >
                           ✏️
                         </button>
                         <button
                           onClick={() => updateTaskStatus(task.id, 'in_progress')}
-                          className="flex-1 bg-blue-500 text-white px-3 py-1 rounded text-sm hover:bg-blue-600"
+                          className="btn-primary flex-1 text-sm"
                         >
                           ▶️ Commencer
                         </button>
                         <button
                           onClick={() => deleteTask(task.id)}
-                          className="bg-red-500 text-white px-3 py-1 rounded text-sm hover:bg-red-600"
+                          className="text-white px-3 py-1 rounded text-sm"
+                          style={{ backgroundColor: 'var(--color-error)' }}
                         >
                           🗑️
                         </button>
@@ -531,39 +650,72 @@ export default function TachesPage() {
           </div>
           
           {/* Colonne EN COURS */}
-          <div className="bg-white rounded-xl p-6 shadow-md">
+          <div 
+            className="rounded-xl p-6 shadow-md border"
+            style={{
+              backgroundColor: 'var(--color-bg-primary)',
+              borderColor: 'var(--color-border)'
+            }}
+          >
             <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-bold text-gray-800">
+              <h2 
+                className="text-xl font-bold"
+                style={{ color: 'var(--color-text-primary)' }}
+              >
                 🚀 En cours
               </h2>
-              <span className="bg-blue-200 text-blue-700 px-3 py-1 rounded-full text-sm font-semibold">
+              <span 
+                className="px-3 py-1 rounded-full text-sm font-semibold"
+                style={{
+                  backgroundColor: 'var(--color-primary-light)',
+                  color: 'var(--color-primary)'
+                }}
+              >
                 {inProgressTasks.length}
               </span>
             </div>
             
             <div className="space-y-3">
               {inProgressTasks.length === 0 ? (
-                <p className="text-gray-400 text-center py-8">Aucune tâche</p>
+                <p 
+                  className="text-center py-8"
+                  style={{ color: 'var(--color-text-tertiary)' }}
+                >
+                  Aucune tâche
+                </p>
               ) : (
                 inProgressTasks.map(task => {
                   const project = getProjectName(task.project_id)
                   return (
                     <div
                       key={task.id}
-                      className="bg-blue-50 p-4 rounded-lg border border-blue-200 hover:shadow-md transition-shadow"
+                      className="p-4 rounded-lg border hover:shadow-md transition-shadow"
+                      style={{
+                        backgroundColor: 'var(--color-primary-light)',
+                        borderColor: 'var(--color-primary)'
+                      }}
                     >
-                      <h3 className="font-semibold text-gray-800 mb-2">
+                      <h3 
+                        className="font-semibold mb-2"
+                        style={{ color: 'var(--color-text-primary)' }}
+                      >
                         {task.title}
                       </h3>
                       
                       {task.description && (
-                        <p className="text-sm text-gray-600 mb-3">
+                        <p 
+                          className="text-sm mb-3"
+                          style={{ color: 'var(--color-text-secondary)' }}
+                        >
                           {task.description}
                         </p>
                       )}
                       
                       {task.due_date && (
-                        <p className="text-xs text-gray-500 mb-2">
+                        <p 
+                          className="text-xs mb-2"
+                          style={{ color: 'var(--color-text-tertiary)' }}
+                        >
                           📅 Échéance : {new Date(task.due_date).toLocaleDateString('fr-FR')}
                         </p>
                       )}
@@ -591,25 +743,29 @@ export default function TachesPage() {
                       <div className="flex gap-2">
                         <button
                           onClick={() => startEdit(task)}
-                          className="bg-gray-500 text-white px-3 py-1 rounded text-sm hover:bg-gray-600"
+                          className="text-white px-3 py-1 rounded text-sm"
+                          style={{ backgroundColor: 'var(--color-text-tertiary)' }}
                         >
                           ✏️
                         </button>
                         <button
                           onClick={() => updateTaskStatus(task.id, 'todo')}
-                          className="bg-gray-400 text-white px-3 py-1 rounded text-sm hover:bg-gray-500"
+                          className="text-white px-3 py-1 rounded text-sm"
+                          style={{ backgroundColor: 'var(--color-text-tertiary)' }}
                         >
                           ⬅️
                         </button>
                         <button
                           onClick={() => updateTaskStatus(task.id, 'done')}
-                          className="flex-1 bg-green-500 text-white px-3 py-1 rounded text-sm hover:bg-green-600"
+                          className="flex-1 text-white px-3 py-1 rounded text-sm"
+                          style={{ backgroundColor: 'var(--color-success)' }}
                         >
                           ✅ Terminer
                         </button>
                         <button
                           onClick={() => deleteTask(task.id)}
-                          className="bg-red-500 text-white px-3 py-1 rounded text-sm hover:bg-red-600"
+                          className="text-white px-3 py-1 rounded text-sm"
+                          style={{ backgroundColor: 'var(--color-error)' }}
                         >
                           🗑️
                         </button>
@@ -622,39 +778,72 @@ export default function TachesPage() {
           </div>
           
           {/* Colonne TERMINÉ */}
-          <div className="bg-white rounded-xl p-6 shadow-md">
+          <div 
+            className="rounded-xl p-6 shadow-md border"
+            style={{
+              backgroundColor: 'var(--color-bg-primary)',
+              borderColor: 'var(--color-border)'
+            }}
+          >
             <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-bold text-gray-800">
+              <h2 
+                className="text-xl font-bold"
+                style={{ color: 'var(--color-text-primary)' }}
+              >
                 ✅ Terminé
               </h2>
-              <span className="bg-green-200 text-green-700 px-3 py-1 rounded-full text-sm font-semibold">
+              <span 
+                className="px-3 py-1 rounded-full text-sm font-semibold"
+                style={{
+                  backgroundColor: 'var(--color-success)20',
+                  color: 'var(--color-success)'
+                }}
+              >
                 {doneTasks.length}
               </span>
             </div>
             
             <div className="space-y-3">
               {doneTasks.length === 0 ? (
-                <p className="text-gray-400 text-center py-8">Aucune tâche</p>
+                <p 
+                  className="text-center py-8"
+                  style={{ color: 'var(--color-text-tertiary)' }}
+                >
+                  Aucune tâche
+                </p>
               ) : (
                 doneTasks.map(task => {
                   const project = getProjectName(task.project_id)
                   return (
                     <div
                       key={task.id}
-                      className="bg-green-50 p-4 rounded-lg border border-green-200 hover:shadow-md transition-shadow opacity-75"
+                      className="p-4 rounded-lg border hover:shadow-md transition-shadow opacity-75"
+                      style={{
+                        backgroundColor: 'var(--color-success)20',
+                        borderColor: 'var(--color-success)40'
+                      }}
                     >
-                      <h3 className="font-semibold text-gray-800 mb-2 line-through">
+                      <h3 
+                        className="font-semibold mb-2 line-through"
+                        style={{ color: 'var(--color-text-primary)' }}
+                      >
                         {task.title}
                       </h3>
                       
                       {task.description && (
-                        <p className="text-sm text-gray-600 mb-3">
+                        <p 
+                          className="text-sm mb-3"
+                          style={{ color: 'var(--color-text-secondary)' }}
+                        >
                           {task.description}
                         </p>
                       )}
                       
                       {task.due_date && (
-                        <p className="text-xs text-gray-500 mb-2">
+                        <p 
+                          className="text-xs mb-2"
+                          style={{ color: 'var(--color-text-tertiary)' }}
+                        >
                           📅 Échéance : {new Date(task.due_date).toLocaleDateString('fr-FR')}
                         </p>
                       )}
@@ -682,13 +871,14 @@ export default function TachesPage() {
                       <div className="flex gap-2">
                         <button
                           onClick={() => updateTaskStatus(task.id, 'in_progress')}
-                          className="flex-1 bg-blue-500 text-white px-3 py-1 rounded text-sm hover:bg-blue-600"
+                          className="btn-primary flex-1 text-sm"
                         >
                           ↩️ Reprendre
                         </button>
                         <button
                           onClick={() => deleteTask(task.id)}
-                          className="bg-red-500 text-white px-3 py-1 rounded text-sm hover:bg-red-600"
+                          className="text-white px-3 py-1 rounded text-sm"
+                          style={{ backgroundColor: 'var(--color-error)' }}
                         >
                           🗑️
                         </button>

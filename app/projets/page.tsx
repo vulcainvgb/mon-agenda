@@ -255,8 +255,12 @@ export default function ProjetsPage() {
   
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <p className="text-xl text-gray-600">⏳ Chargement...</p>
+      <div className="min-h-screen flex items-center justify-center bg-theme-primary">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 border-4 border-t-transparent rounded-full animate-spin" 
+               style={{ borderColor: 'var(--color-primary)', borderTopColor: 'transparent' }}></div>
+          <p className="text-xl text-theme-secondary">Chargement...</p>
+        </div>
       </div>
     )
   }
@@ -266,17 +270,17 @@ export default function ProjetsPage() {
   const archivedProjects = projects.filter(p => p.status === 'archived')
   
   return (
-    <main className="min-h-screen bg-gray-50 p-8">
+    <main className="min-h-screen bg-theme-secondary p-8">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="flex justify-between items-center mb-8">
           <div className="flex items-center gap-4">
-            <h1 className="text-3xl font-bold text-purple-900">
+            <h1 className="text-3xl font-bold text-theme-primary">
               📁 Mes Projets
             </h1>
             
             {isRefreshing && (
-              <span className="text-sm text-gray-500 flex items-center gap-2">
+              <span className="text-sm text-theme-tertiary flex items-center gap-2">
                 <span className="animate-spin">🔄</span>
                 Mise à jour...
               </span>
@@ -285,7 +289,7 @@ export default function ProjetsPage() {
           
           <button
             onClick={() => setShowForm(!showForm)}
-            className="bg-purple-600 text-white px-6 py-2 rounded-lg hover:bg-purple-700 transition-colors font-medium"
+            className="btn-primary"
           >
             {showForm ? '❌ Annuler' : '➕ Nouveau projet'}
           </button>
@@ -293,78 +297,83 @@ export default function ProjetsPage() {
         
         {/* Formulaire d'édition */}
         {editingProject && (
-          <div className="bg-blue-50 border-2 border-blue-300 p-6 rounded-xl mb-8 shadow-md">
+          <div className="bg-theme-primary border-2 border-theme p-6 rounded-xl mb-8 shadow-md">
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-semibold text-blue-900">
+              <h2 className="text-xl font-semibold text-theme-primary">
                 ✏️ Modifier le projet
               </h2>
-              <button onClick={cancelEdit} className="text-gray-500 hover:text-gray-700 font-bold text-xl">
+              <button onClick={cancelEdit} className="text-theme-tertiary hover:text-theme-secondary font-bold text-xl">
                 ❌
               </button>
             </div>
             
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Nom du projet *</label>
+                <label className="block text-sm font-medium text-theme-secondary mb-2">Nom du projet *</label>
                 <input
                   type="text"
                   value={editName}
                   onChange={(e) => setEditName(e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg px-4 py-2"
+                  className="w-full border border-theme rounded-lg px-4 py-2 bg-theme-primary text-theme-primary focus:outline-none focus:ring-2 focus:ring-opacity-50"
+                  style={{ '--tw-ring-color': 'var(--color-primary)' } as any}
                 />
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
+                <label className="block text-sm font-medium text-theme-secondary mb-2">Description</label>
                 <textarea
                   value={editDescription}
                   onChange={(e) => setEditDescription(e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg px-4 py-2"
+                  className="w-full border border-theme rounded-lg px-4 py-2 bg-theme-primary text-theme-primary focus:outline-none focus:ring-2 focus:ring-opacity-50"
+                  style={{ '--tw-ring-color': 'var(--color-primary)' } as any}
                   rows={3}
                 />
               </div>
               
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Couleur</label>
+                  <label className="block text-sm font-medium text-theme-secondary mb-2">Couleur</label>
                   <input
                     type="color"
                     value={editColor}
                     onChange={(e) => setEditColor(e.target.value)}
-                    className="w-full h-10 border border-gray-300 rounded-lg"
+                    className="w-full h-10 border border-theme rounded-lg"
                   />
                 </div>
                 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Budget total (€)</label>
+                  <label className="block text-sm font-medium text-theme-secondary mb-2">Budget total (€)</label>
                   <input
                     type="number"
                     value={editBudgetTotal}
                     onChange={(e) => setEditBudgetTotal(e.target.value)}
                     placeholder="5000"
-                    className="w-full border border-gray-300 rounded-lg px-4 py-2"
+                    className="w-full border border-theme rounded-lg px-4 py-2 bg-theme-primary text-theme-primary focus:outline-none focus:ring-2 focus:ring-opacity-50"
+                    style={{ '--tw-ring-color': 'var(--color-primary)' } as any}
                   />
                 </div>
               </div>
               
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Date de début</label>
+                  <label className="block text-sm font-medium text-theme-secondary mb-2">Date de début</label>
                   <input
                     type="date"
                     value={editStartDate}
                     onChange={(e) => setEditStartDate(e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg px-4 py-2"
+                    className="w-full border border-theme rounded-lg px-4 py-2 bg-theme-primary text-theme-primary focus:outline-none focus:ring-2 focus:ring-opacity-50"
+                    style={{ '--tw-ring-color': 'var(--color-primary)' } as any}
                   />
                 </div>
                 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Date de fin</label>
+                  <label className="block text-sm font-medium text-theme-secondary mb-2">Date de fin</label>
                   <input
                     type="date"
                     value={editEndDate}
                     onChange={(e) => setEditEndDate(e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg px-4 py-2"
+                    className="w-full border border-theme rounded-lg px-4 py-2 bg-theme-primary text-theme-primary focus:outline-none focus:ring-2 focus:ring-opacity-50"
+                    style={{ '--tw-ring-color': 'var(--color-primary)' } as any}
                   />
                 </div>
               </div>
@@ -372,13 +381,13 @@ export default function ProjetsPage() {
               <div className="flex gap-2">
                 <button
                   onClick={saveEdit}
-                  className="flex-1 bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors font-semibold"
+                  className="flex-1 btn-primary"
                 >
                   💾 Enregistrer
                 </button>
                 <button
                   onClick={cancelEdit}
-                  className="bg-gray-200 text-gray-700 px-6 py-3 rounded-lg hover:bg-gray-300 transition-colors font-semibold"
+                  className="bg-theme-tertiary text-theme-primary px-6 py-3 rounded-lg hover:opacity-80 transition-all font-semibold"
                 >
                   Annuler
                 </button>
@@ -389,82 +398,87 @@ export default function ProjetsPage() {
         
         {/* Formulaire de création */}
         {showForm && (
-          <div className="bg-white p-6 rounded-xl mb-8 shadow-md">
-            <h2 className="text-xl font-semibold text-purple-900 mb-4">
+          <div className="bg-theme-primary p-6 rounded-xl mb-8 shadow-md border border-theme">
+            <h2 className="text-xl font-semibold text-theme-primary mb-4">
               Créer un projet
             </h2>
             
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Nom du projet *</label>
+                <label className="block text-sm font-medium text-theme-secondary mb-2">Nom du projet *</label>
                 <input
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder="Rénovation cuisine, Mariage, Lancement produit..."
-                  className="w-full border border-gray-300 rounded-lg px-4 py-2"
+                  className="w-full border border-theme rounded-lg px-4 py-2 bg-theme-primary text-theme-primary focus:outline-none focus:ring-2 focus:ring-opacity-50"
+                  style={{ '--tw-ring-color': 'var(--color-primary)' } as any}
                 />
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
+                <label className="block text-sm font-medium text-theme-secondary mb-2">Description</label>
                 <textarea
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   placeholder="Objectifs et détails du projet..."
-                  className="w-full border border-gray-300 rounded-lg px-4 py-2"
+                  className="w-full border border-theme rounded-lg px-4 py-2 bg-theme-primary text-theme-primary focus:outline-none focus:ring-2 focus:ring-opacity-50"
+                  style={{ '--tw-ring-color': 'var(--color-primary)' } as any}
                   rows={3}
                 />
               </div>
               
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Couleur</label>
+                  <label className="block text-sm font-medium text-theme-secondary mb-2">Couleur</label>
                   <input
                     type="color"
                     value={color}
                     onChange={(e) => setColor(e.target.value)}
-                    className="w-full h-10 border border-gray-300 rounded-lg"
+                    className="w-full h-10 border border-theme rounded-lg"
                   />
                 </div>
                 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Budget total (€)</label>
+                  <label className="block text-sm font-medium text-theme-secondary mb-2">Budget total (€)</label>
                   <input
                     type="number"
                     value={budgetTotal}
                     onChange={(e) => setBudgetTotal(e.target.value)}
                     placeholder="5000"
-                    className="w-full border border-gray-300 rounded-lg px-4 py-2"
+                    className="w-full border border-theme rounded-lg px-4 py-2 bg-theme-primary text-theme-primary focus:outline-none focus:ring-2 focus:ring-opacity-50"
+                    style={{ '--tw-ring-color': 'var(--color-primary)' } as any}
                   />
                 </div>
               </div>
               
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Date de début</label>
+                  <label className="block text-sm font-medium text-theme-secondary mb-2">Date de début</label>
                   <input
                     type="date"
                     value={startDate}
                     onChange={(e) => setStartDate(e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg px-4 py-2"
+                    className="w-full border border-theme rounded-lg px-4 py-2 bg-theme-primary text-theme-primary focus:outline-none focus:ring-2 focus:ring-opacity-50"
+                    style={{ '--tw-ring-color': 'var(--color-primary)' } as any}
                   />
                 </div>
                 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Date de fin</label>
+                  <label className="block text-sm font-medium text-theme-secondary mb-2">Date de fin</label>
                   <input
                     type="date"
                     value={endDate}
                     onChange={(e) => setEndDate(e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg px-4 py-2"
+                    className="w-full border border-theme rounded-lg px-4 py-2 bg-theme-primary text-theme-primary focus:outline-none focus:ring-2 focus:ring-opacity-50"
+                    style={{ '--tw-ring-color': 'var(--color-primary)' } as any}
                   />
                 </div>
               </div>
               
               <button
                 onClick={createProject}
-                className="w-full bg-purple-600 text-white px-6 py-3 rounded-lg hover:bg-purple-700 transition-colors font-semibold"
+                className="w-full btn-primary"
               >
                 ✨ Créer le projet
               </button>
@@ -474,14 +488,14 @@ export default function ProjetsPage() {
         
         {/* Liste des projets actifs */}
         <div className="mb-8">
-          <h2 className="text-2xl font-bold text-gray-800 mb-4">
+          <h2 className="text-2xl font-bold text-theme-primary mb-4">
             🚀 Projets actifs ({activeProjects.length})
           </h2>
           
           {activeProjects.length === 0 ? (
-            <div className="bg-white p-8 rounded-xl text-center shadow-md">
-              <p className="text-gray-600 text-lg">📭 Aucun projet actif</p>
-              <p className="text-gray-500 text-sm mt-2">Créez votre premier projet !</p>
+            <div className="bg-theme-primary p-8 rounded-xl text-center shadow-md border border-theme">
+              <p className="text-theme-secondary text-lg">📭 Aucun projet actif</p>
+              <p className="text-theme-tertiary text-sm mt-2">Créez votre premier projet !</p>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -492,17 +506,17 @@ export default function ProjetsPage() {
                 return (
                   <div
                     key={project.id}
-                    className="bg-white rounded-xl p-6 shadow-md hover:shadow-lg transition-shadow border-l-4"
+                    className="card-theme border-l-4"
                     style={{ borderLeftColor: project.color }}
                   >
                     <div className="flex justify-between items-start mb-4">
-                      <h3 className="text-xl font-bold text-gray-800">
+                      <h3 className="text-xl font-bold text-theme-primary">
                         {project.name}
                       </h3>
                       <div className="flex gap-1">
                         <button
                           onClick={() => startEdit(project)}
-                          className="text-gray-500 hover:text-gray-700"
+                          className="text-theme-tertiary hover:text-theme-secondary transition-colors"
                         >
                           ✏️
                         </button>
@@ -510,35 +524,38 @@ export default function ProjetsPage() {
                     </div>
                     
                     {project.description && (
-                      <p className="text-gray-600 text-sm mb-4">
+                      <p className="text-theme-secondary text-sm mb-4">
                         {project.description}
                       </p>
                     )}
                     
                     {/* Progression */}
                     <div className="mb-4">
-                      <div className="flex justify-between text-sm text-gray-600 mb-2">
+                      <div className="flex justify-between text-sm text-theme-secondary mb-2">
                         <span>Progression</span>
                         <span className="font-semibold">{progress}%</span>
                       </div>
-                      <div className="w-full bg-gray-200 rounded-full h-2">
+                      <div className="w-full bg-theme-tertiary rounded-full h-2">
                         <div
-                          className="bg-green-500 h-2 rounded-full transition-all"
-                          style={{ width: `${progress}%` }}
+                          className="h-2 rounded-full transition-all"
+                          style={{ 
+                            width: `${progress}%`,
+                            backgroundColor: 'var(--color-success)'
+                          }}
                         ></div>
                       </div>
                     </div>
                     
                     {/* Stats */}
-                    <div className="flex flex-wrap gap-3 text-sm text-gray-600 mb-4">
+                    <div className="flex flex-wrap gap-3 text-sm text-theme-secondary mb-4">
                       <span>✅ {stats.tasksDone}/{stats.tasks} tâches</span>
                       <span>📅 {stats.events} événements</span>
                       {/* Affichage du temps passé */}
                       <div className="flex items-center gap-1">
-                        <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg className="w-4 h-4" style={{ color: 'var(--color-primary)' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
-                        <span className="font-medium text-blue-600">
+                        <span className="font-medium" style={{ color: 'var(--color-primary)' }}>
                           {(() => {
                             const hours = Math.floor((project.time_spent || 0) / 60);
                             const minutes = (project.time_spent || 0) % 60;
@@ -553,14 +570,14 @@ export default function ProjetsPage() {
                     
                     {/* Budget */}
                     {project.budget_total && (
-                      <div className="text-sm text-gray-600 mb-4">
+                      <div className="text-sm text-theme-secondary mb-4">
                         💰 Budget : {project.budget_spent || 0}€ / {project.budget_total}€
                       </div>
                     )}
                     
                     {/* Dates */}
                     {(project.start_date || project.end_date) && (
-                      <div className="text-xs text-gray-500 mb-4">
+                      <div className="text-xs text-theme-tertiary mb-4">
                         {project.start_date && `📅 Début : ${new Date(project.start_date).toLocaleDateString('fr-FR')}`}
                         {project.start_date && project.end_date && ' • '}
                         {project.end_date && `Fin : ${new Date(project.end_date).toLocaleDateString('fr-FR')}`}
@@ -571,20 +588,22 @@ export default function ProjetsPage() {
                     <div className="flex gap-2">
                       <Link
                         href={`/projets/${project.id}`}
-                        className="flex-1 bg-purple-600 text-white px-4 py-2 rounded-lg text-center hover:bg-purple-700 transition-colors text-sm font-medium"
+                        className="flex-1 btn-primary text-center text-sm font-medium"
                       >
                         👁️ Voir détails
                       </Link>
                       <button
                         onClick={() => updateStatus(project.id, 'completed')}
-                        className="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition-colors text-sm"
+                        className="px-4 py-2 rounded-lg transition-all text-sm text-white"
+                        style={{ backgroundColor: 'var(--color-success)' }}
                         title="Marquer comme terminé"
                       >
                         ✅
                       </button>
                       <button
                         onClick={() => deleteProject(project.id)}
-                        className="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 transition-colors text-sm"
+                        className="px-4 py-2 rounded-lg transition-all text-sm text-white"
+                        style={{ backgroundColor: 'var(--color-danger)' }}
                       >
                         🗑️
                       </button>
@@ -599,28 +618,32 @@ export default function ProjetsPage() {
         {/* Projets terminés */}
         {completedProjects.length > 0 && (
           <div className="mb-8">
-            <h2 className="text-2xl font-bold text-gray-800 mb-4">
+            <h2 className="text-2xl font-bold text-theme-primary mb-4">
               ✅ Projets terminés ({completedProjects.length})
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {completedProjects.map((project) => (
                 <div
                   key={project.id}
-                  className="bg-green-50 rounded-xl p-6 shadow-md opacity-75"
+                  className="card-theme opacity-75"
+                  style={{ 
+                    backgroundColor: 'var(--color-success-light)',
+                    borderColor: 'var(--color-success)'
+                  }}
                 >
-                  <h3 className="text-xl font-bold text-gray-800 mb-2 line-through">
+                  <h3 className="text-xl font-bold text-theme-primary mb-2 line-through">
                     {project.name}
                   </h3>
                   <div className="flex gap-2 mt-4">
                     <button
                       onClick={() => updateStatus(project.id, 'active')}
-                      className="flex-1 bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 text-sm"
+                      className="flex-1 btn-secondary text-sm"
                     >
                       ↩️ Réactiver
                     </button>
                     <button
                       onClick={() => updateStatus(project.id, 'archived')}
-                      className="bg-gray-400 text-white px-4 py-2 rounded-lg hover:bg-gray-500 text-sm"
+                      className="bg-theme-tertiary text-theme-primary px-4 py-2 rounded-lg hover:opacity-80 transition-all text-sm"
                     >
                       📦 Archiver
                     </button>

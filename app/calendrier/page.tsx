@@ -9,13 +9,12 @@ import withDragAndDrop from 'react-big-calendar/lib/addons/dragAndDrop';
 import { DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 import 'react-big-calendar/lib/addons/dragAndDrop/styles.css';
-import moment from 'moment-timezone'; // ✅ Import moment-timezone
+import moment from 'moment-timezone';
 import 'moment/locale/fr';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 import EventModal from '../../components/EventModal';
 import GoogleCalendarSync from '../../components/GoogleCalendarSync';
 
-// ✅ Configuration du timezone par défaut
 moment.tz.setDefault('Europe/Paris');
 moment.locale('fr');
 
@@ -30,14 +29,10 @@ interface CalendarEvent {
   resource: Event;
 }
 
-// ✅ UTILITAIRES TIMEZONE CENTRALISÉS
 const timezoneUtils = {
-  // Parse une date de Supabase (format: "2025-01-15 15:00:00")
-  // La date est stockée sans timezone, on la considère comme heure de Paris
   parseFromDB: (dateStr: string | Date): Date => {
     if (dateStr instanceof Date) return dateStr;
     
-    // Format: "2025-01-15 15:00:00" ou "2025-01-15T15:00:00"
     const cleaned = String(dateStr)
       .replace(' ', 'T')
       .split('.')[0]
@@ -46,7 +41,6 @@ const timezoneUtils = {
     
     console.log('📥 DB → JS:', dateStr, '→', cleaned);
     
-    // Parser en tant qu'heure de Paris
     const parsed = moment.tz(cleaned, 'Europe/Paris');
     const result = parsed.toDate();
     
@@ -54,8 +48,6 @@ const timezoneUtils = {
     return result;
   },
 
-  // Formate une date JavaScript pour Supabase
-  // On convertit en heure de Paris puis on formate sans timezone
   formatForDB: (date: Date): string => {
     const parisTime = moment(date).tz('Europe/Paris');
     const formatted = parisTime.format('YYYY-MM-DD HH:mm:ss');
@@ -64,7 +56,6 @@ const timezoneUtils = {
     return formatted;
   },
 
-  // Pour les inputs datetime-local (format ISO sans timezone)
   formatForInput: (date: Date | string): string => {
     const momentDate = moment(date).tz('Europe/Paris');
     return momentDate.format('YYYY-MM-DDTHH:mm');
@@ -107,32 +98,11 @@ export default function CalendrierPage() {
     checkUser();
     loadData();
     
-    // Polling toutes les 3 secondes
     const interval = setInterval(loadData, 3000);
     return () => clearInterval(interval);
   }, []);
 
-  // ✅ Ajuster automatiquement l'heure de fin quand l'heure de début change
-  useEffect(() => {
-    if (showModal && formData.start_time) {
-      const startMoment = moment(formData.start_time).tz('Europe/Paris');
-      const endMoment = startMoment.clone().add(1, 'hour');
-      const newEndTime = endMoment.format('YYYY-MM-DDTHH:mm');
-      
-      // Mettre à jour uniquement si l'heure de fin a changé (éviter boucle infinie)
-      if (formData.end_time !== newEndTime) {
-        console.log('⏰ Ajustement automatique heure de fin:', {
-          start: startMoment.format('HH:mm'),
-          end: endMoment.format('HH:mm')
-        });
-        
-        setFormData(prev => ({
-          ...prev,
-          end_time: newEndTime
-        }));
-      }
-    }
-  }, [formData.start_time, showModal]);
+ 
 
   const checkUser = async () => {
     const { data: { session } } = await supabase.auth.getSession();
@@ -193,7 +163,6 @@ export default function CalendrierPage() {
   };
 
   const handleSelectSlot = ({ start, end }: { start: Date; end: Date }) => {
-    // ✅ Forcer end = start + 1 heure pour éviter les problèmes de timezone
     const startMoment = moment(start).tz('Europe/Paris');
     const endMoment = startMoment.clone().add(1, 'hour');
     
@@ -244,13 +213,11 @@ export default function CalendrierPage() {
         nouvelleFin: end.toLocaleString('fr-FR')
       });
       
-      // Optimistic update
       const updatedEvents = calendarEvents.map(e => 
         e.id === event.id ? { ...e, start, end } : e
       );
       setCalendarEvents(updatedEvents);
 
-      // Sauvegarde en DB
       const startFormatted = timezoneUtils.formatForDB(start);
       const endFormatted = timezoneUtils.formatForDB(end);
 
@@ -316,7 +283,6 @@ export default function CalendrierPage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      // Les dates viennent des inputs datetime-local
       const startDate = moment.tz(formData.start_time, 'Europe/Paris').toDate();
       const endDate = moment.tz(formData.end_time, 'Europe/Paris').toDate();
 
@@ -398,10 +364,18 @@ export default function CalendrierPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div 
+        className="min-h-screen flex items-center justify-center"
+        style={{ backgroundColor: 'var(--color-bg-secondary)' }}
+      >
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Chargement du calendrier...</p>
+          <div 
+            className="animate-spin rounded-full h-12 w-12 border-b-2 mx-auto mb-4"
+            style={{ borderColor: 'var(--color-primary)' }}
+          />
+          <p style={{ color: 'var(--color-text-secondary)' }}>
+            Chargement du calendrier...
+          </p>
         </div>
       </div>
     );
@@ -409,17 +383,30 @@ export default function CalendrierPage() {
 
   return (
     <DndProvider backend={HTML5Backend}>
-      <div className="min-h-screen bg-gray-50 py-8">
+      <div 
+        className="min-h-screen py-8"
+        style={{ backgroundColor: 'var(--color-bg-secondary)' }}
+      >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="mb-8 flex items-center justify-between">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">Calendrier</h1>
-              <p className="text-gray-600 mt-2">Gérez vos événements et rendez-vous</p>
+              <h1 
+                className="text-3xl font-bold"
+                style={{ color: 'var(--color-text-primary)' }}
+              >
+                Calendrier
+              </h1>
+              <p 
+                className="mt-2"
+                style={{ color: 'var(--color-text-secondary)' }}
+              >
+                Gérez vos événements et rendez-vous
+              </p>
             </div>
             <button
               onClick={() => {
                 const now = moment().tz('Europe/Paris');
-                const later = now.clone().add(1, 'hour'); // ✅ Utiliser .clone() pour ne pas muter 'now'
+                const later = now.clone().add(1, 'hour');
                 
                 setFormData({
                   title: '',
@@ -432,7 +419,7 @@ export default function CalendrierPage() {
                 setSelectedEvent(null);
                 setShowModal(true);
               }}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+              className="btn-primary flex items-center gap-2"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -445,9 +432,22 @@ export default function CalendrierPage() {
             <GoogleCalendarSync />
           </div>
           
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 relative" style={{ height: '700px' }}>
+          <div 
+            className="rounded-xl shadow-sm border p-6 relative"
+            style={{ 
+              height: '700px',
+              backgroundColor: 'var(--color-bg-primary)',
+              borderColor: 'var(--color-border)'
+            }}
+          >
             {isDragging && (
-              <div className="absolute top-4 right-4 z-10 bg-blue-100 text-blue-700 px-4 py-2 rounded-lg shadow-lg flex items-center gap-2">
+              <div 
+                className="absolute top-4 right-4 z-10 px-4 py-2 rounded-lg shadow-lg flex items-center gap-2"
+                style={{
+                  backgroundColor: 'var(--color-primary-light)',
+                  color: 'var(--color-primary)'
+                }}
+              >
                 <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>

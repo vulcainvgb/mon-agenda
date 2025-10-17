@@ -38,10 +38,8 @@ export default function DashboardPage() {
     checkUser();
     loadDashboardData();
 
-    // Polling pour synchronisation
     const interval = setInterval(loadDashboardData, 3000);
     return () => clearInterval(interval);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const checkUser = async () => {
@@ -56,7 +54,6 @@ export default function DashboardPage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      // Charger toutes les données en parallèle
       const [tasksRes, eventsRes, projectsRes] = await Promise.all([
         supabase
           .from('tasks')
@@ -76,16 +73,9 @@ export default function DashboardPage() {
       const events = eventsRes.data || [];
       const projects = projectsRes.data || [];
 
-      // Calculer les statistiques
       calculateStats(tasks, events, projects);
-      
-      // Générer la timeline des prochains événements
       generateUpcomingTimeline(tasks, events);
-      
-      // Générer les alertes projets
       generateProjectAlerts(projects, tasks);
-      
-      // Générer les données du graphique
       generateChartData(tasks);
 
       setLoading(false);
@@ -149,7 +139,6 @@ export default function DashboardPage() {
     const now = new Date();
     const nextWeek = addDays(now, 7);
 
-    // Événements à venir (7 prochains jours)
     const upcomingEvents: UpcomingItem[] = events
       .filter(e => {
         const eventDate = parseDate(e.start_time);
@@ -167,7 +156,6 @@ export default function DashboardPage() {
         } : undefined
       }));
 
-    // Tâches à venir (7 prochains jours) non terminées
     const upcomingTasks: UpcomingItem[] = tasks
       .filter(t => 
         t.due_date && 
@@ -189,10 +177,9 @@ export default function DashboardPage() {
         } : undefined
       }));
 
-    // Fusionner et trier par date
     const allItems = [...upcomingEvents, ...upcomingTasks]
       .sort((a, b) => parseDate(a.date).getTime() - parseDate(b.date).getTime())
-      .slice(0, 8); // Limiter à 8 items
+      .slice(0, 8);
 
     setUpcomingItems(allItems);
   };
@@ -223,7 +210,6 @@ export default function DashboardPage() {
     const newAlerts: ProjectAlert[] = [];
 
     projects.forEach(project => {
-      // Alerte budget dépassé
       if (project.budget_total && project.budget_spent && project.budget_spent > project.budget_total) {
         const overrun = project.budget_spent - project.budget_total;
         newAlerts.push({
@@ -237,7 +223,6 @@ export default function DashboardPage() {
         });
       }
 
-      // Alerte proche du budget
       if (project.budget_total && project.budget_spent && 
           project.budget_spent > project.budget_total * 0.9 &&
           project.budget_spent <= project.budget_total) {
@@ -253,7 +238,6 @@ export default function DashboardPage() {
         });
       }
 
-      // Alerte deadline dépassée
       if (project.end_date && project.status === 'active' && isBefore(parseDate(project.end_date), now)) {
         newAlerts.push({
           id: `deadline-${project.id}`,
@@ -266,7 +250,6 @@ export default function DashboardPage() {
         });
       }
 
-      // Alerte tâches en retard
       const overdueTasks = tasks.filter(t => 
         t.project_id === project.id && 
         t.status !== 'done' && 
@@ -292,22 +275,43 @@ export default function DashboardPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div 
+        className="min-h-screen flex items-center justify-center"
+        style={{ backgroundColor: 'var(--color-bg-secondary)' }}
+      >
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Chargement du dashboard...</p>
+          <div 
+            className="animate-spin rounded-full h-12 w-12 border-b-2 mx-auto mb-4"
+            style={{ borderColor: 'var(--color-primary)' }}
+          />
+          <p style={{ color: 'var(--color-text-secondary)' }}>
+            Chargement du dashboard...
+          </p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
+    <div 
+      className="min-h-screen py-8"
+      style={{ backgroundColor: 'var(--color-bg-secondary)' }}
+    >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Tableau de bord</h1>
-          <p className="text-gray-600 mt-2">Vue d'ensemble de vos projets, tâches et événements</p>
+          <h1 
+            className="text-3xl font-bold"
+            style={{ color: 'var(--color-text-primary)' }}
+          >
+            Tableau de bord
+          </h1>
+          <p 
+            className="mt-2"
+            style={{ color: 'var(--color-text-secondary)' }}
+          >
+            Vue d'ensemble de vos projets, tâches et événements
+          </p>
         </div>
 
         {/* Statistiques principales */}
@@ -376,42 +380,123 @@ export default function DashboardPage() {
           <TasksChart data={chartData} />
           
           {/* Statistiques détaillées des tâches */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-6">Détails des tâches</h3>
+          <div 
+            className="rounded-xl shadow-sm border p-6"
+            style={{
+              backgroundColor: 'var(--color-bg-primary)',
+              borderColor: 'var(--color-border)'
+            }}
+          >
+            <h3 
+              className="text-lg font-semibold mb-6"
+              style={{ color: 'var(--color-text-primary)' }}
+            >
+              Détails des tâches
+            </h3>
             <div className="space-y-4">
-              <div className="flex items-center justify-between p-4 bg-blue-50 rounded-lg">
+              <div 
+                className="flex items-center justify-between p-4 rounded-lg"
+                style={{ backgroundColor: 'var(--color-primary-light)' }}
+              >
                 <div className="flex items-center gap-3">
-                  <div className="w-3 h-3 bg-blue-600 rounded-full"></div>
-                  <span className="font-medium text-gray-700">À faire</span>
+                  <div 
+                    className="w-3 h-3 rounded-full"
+                    style={{ backgroundColor: 'var(--color-primary)' }}
+                  />
+                  <span 
+                    className="font-medium"
+                    style={{ color: 'var(--color-text-secondary)' }}
+                  >
+                    À faire
+                  </span>
                 </div>
-                <span className="text-2xl font-bold text-blue-600">{stats.tasks.todo}</span>
+                <span 
+                  className="text-2xl font-bold"
+                  style={{ color: 'var(--color-primary)' }}
+                >
+                  {stats.tasks.todo}
+                </span>
               </div>
               
-              <div className="flex items-center justify-between p-4 bg-orange-50 rounded-lg">
+              <div 
+                className="flex items-center justify-between p-4 rounded-lg"
+                style={{ backgroundColor: 'var(--color-warning)20' }}
+              >
                 <div className="flex items-center gap-3">
-                  <div className="w-3 h-3 bg-orange-600 rounded-full"></div>
-                  <span className="font-medium text-gray-700">En cours</span>
+                  <div 
+                    className="w-3 h-3 rounded-full"
+                    style={{ backgroundColor: 'var(--color-warning)' }}
+                  />
+                  <span 
+                    className="font-medium"
+                    style={{ color: 'var(--color-text-secondary)' }}
+                  >
+                    En cours
+                  </span>
                 </div>
-                <span className="text-2xl font-bold text-orange-600">{stats.tasks.in_progress}</span>
+                <span 
+                  className="text-2xl font-bold"
+                  style={{ color: 'var(--color-warning)' }}
+                >
+                  {stats.tasks.in_progress}
+                </span>
               </div>
               
-              <div className="flex items-center justify-between p-4 bg-green-50 rounded-lg">
+              <div 
+                className="flex items-center justify-between p-4 rounded-lg"
+                style={{ backgroundColor: 'var(--color-success)20' }}
+              >
                 <div className="flex items-center gap-3">
-                  <div className="w-3 h-3 bg-green-600 rounded-full"></div>
-                  <span className="font-medium text-gray-700">Terminées</span>
+                  <div 
+                    className="w-3 h-3 rounded-full"
+                    style={{ backgroundColor: 'var(--color-success)' }}
+                  />
+                  <span 
+                    className="font-medium"
+                    style={{ color: 'var(--color-text-secondary)' }}
+                  >
+                    Terminées
+                  </span>
                 </div>
-                <span className="text-2xl font-bold text-green-600">{stats.tasks.done}</span>
+                <span 
+                  className="text-2xl font-bold"
+                  style={{ color: 'var(--color-success)' }}
+                >
+                  {stats.tasks.done}
+                </span>
               </div>
 
               {stats.tasks.overdue > 0 && (
-                <div className="flex items-center justify-between p-4 bg-red-50 rounded-lg border-2 border-red-200">
+                <div 
+                  className="flex items-center justify-between p-4 rounded-lg border-2"
+                  style={{ 
+                    backgroundColor: 'var(--color-error)20',
+                    borderColor: 'var(--color-error)40'
+                  }}
+                >
                   <div className="flex items-center gap-3">
-                    <svg className="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg 
+                      className="w-5 h-5" 
+                      fill="none" 
+                      stroke="currentColor" 
+                      viewBox="0 0 24 24"
+                      style={{ color: 'var(--color-error)' }}
+                    >
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
-                    <span className="font-medium text-red-700">En retard</span>
+                    <span 
+                      className="font-medium"
+                      style={{ color: 'var(--color-error)' }}
+                    >
+                      En retard
+                    </span>
                   </div>
-                  <span className="text-2xl font-bold text-red-600">{stats.tasks.overdue}</span>
+                  <span 
+                    className="text-2xl font-bold"
+                    style={{ color: 'var(--color-error)' }}
+                  >
+                    {stats.tasks.overdue}
+                  </span>
                 </div>
               )}
             </div>
@@ -419,58 +504,161 @@ export default function DashboardPage() {
         </div>
 
         {/* Actions rapides */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Actions rapides</h3>
+        <div 
+          className="rounded-xl shadow-sm border p-6"
+          style={{
+            backgroundColor: 'var(--color-bg-primary)',
+            borderColor: 'var(--color-border)'
+          }}
+        >
+          <h3 
+            className="text-lg font-semibold mb-4"
+            style={{ color: 'var(--color-text-primary)' }}
+          >
+            Actions rapides
+          </h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <button
               onClick={() => router.push('/taches')}
-              className="flex items-center gap-3 p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors text-left"
+              className="flex items-center gap-3 p-4 rounded-lg transition-colors text-left"
+              style={{ backgroundColor: 'var(--color-primary-light)' }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.opacity = '0.8';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.opacity = '1';
+              }}
             >
-              <svg className="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg 
+                className="w-8 h-8" 
+                fill="none" 
+                stroke="currentColor" 
+                viewBox="0 0 24 24"
+                style={{ color: 'var(--color-primary)' }}
+              >
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
               </svg>
               <div>
-                <p className="font-semibold text-gray-900">Nouvelle tâche</p>
-                <p className="text-sm text-gray-600">Ajouter une tâche</p>
+                <p 
+                  className="font-semibold"
+                  style={{ color: 'var(--color-text-primary)' }}
+                >
+                  Nouvelle tâche
+                </p>
+                <p 
+                  className="text-sm"
+                  style={{ color: 'var(--color-text-secondary)' }}
+                >
+                  Ajouter une tâche
+                </p>
               </div>
             </button>
 
             <button
               onClick={() => router.push('/calendrier')}
-              className="flex items-center gap-3 p-4 bg-purple-50 hover:bg-purple-100 rounded-lg transition-colors text-left"
+              className="flex items-center gap-3 p-4 rounded-lg transition-colors text-left"
+              style={{ backgroundColor: 'var(--color-secondary-light)' }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.opacity = '0.8';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.opacity = '1';
+              }}
             >
-              <svg className="w-8 h-8 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg 
+                className="w-8 h-8" 
+                fill="none" 
+                stroke="currentColor" 
+                viewBox="0 0 24 24"
+                style={{ color: 'var(--color-secondary)' }}
+              >
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
               </svg>
               <div>
-                <p className="font-semibold text-gray-900">Nouvel événement</p>
-                <p className="text-sm text-gray-600">Planifier un RDV</p>
+                <p 
+                  className="font-semibold"
+                  style={{ color: 'var(--color-text-primary)' }}
+                >
+                  Nouvel événement
+                </p>
+                <p 
+                  className="text-sm"
+                  style={{ color: 'var(--color-text-secondary)' }}
+                >
+                  Planifier un RDV
+                </p>
               </div>
             </button>
 
             <button
               onClick={() => router.push('/projets')}
-              className="flex items-center gap-3 p-4 bg-orange-50 hover:bg-orange-100 rounded-lg transition-colors text-left"
+              className="flex items-center gap-3 p-4 rounded-lg transition-colors text-left"
+              style={{ backgroundColor: 'var(--color-warning)20' }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.opacity = '0.8';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.opacity = '1';
+              }}
             >
-              <svg className="w-8 h-8 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg 
+                className="w-8 h-8" 
+                fill="none" 
+                stroke="currentColor" 
+                viewBox="0 0 24 24"
+                style={{ color: 'var(--color-warning)' }}
+              >
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
               </svg>
               <div>
-                <p className="font-semibold text-gray-900">Nouveau projet</p>
-                <p className="text-sm text-gray-600">Démarrer un projet</p>
+                <p 
+                  className="font-semibold"
+                  style={{ color: 'var(--color-text-primary)' }}
+                >
+                  Nouveau projet
+                </p>
+                <p 
+                  className="text-sm"
+                  style={{ color: 'var(--color-text-secondary)' }}
+                >
+                  Démarrer un projet
+                </p>
               </div>
             </button>
 
             <button
               onClick={() => router.push('/taches')}
-              className="flex items-center gap-3 p-4 bg-green-50 hover:bg-green-100 rounded-lg transition-colors text-left"
+              className="flex items-center gap-3 p-4 rounded-lg transition-colors text-left"
+              style={{ backgroundColor: 'var(--color-success)20' }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.opacity = '0.8';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.opacity = '1';
+              }}
             >
-              <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg 
+                className="w-8 h-8" 
+                fill="none" 
+                stroke="currentColor" 
+                viewBox="0 0 24 24"
+                style={{ color: 'var(--color-success)' }}
+              >
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
               </svg>
               <div>
-                <p className="font-semibold text-gray-900">Voir mes tâches</p>
-                <p className="text-sm text-gray-600">Gérer le Kanban</p>
+                <p 
+                  className="font-semibold"
+                  style={{ color: 'var(--color-text-primary)' }}
+                >
+                  Voir mes tâches
+                </p>
+                <p 
+                  className="text-sm"
+                  style={{ color: 'var(--color-text-secondary)' }}
+                >
+                  Gérer le Kanban
+                </p>
               </div>
             </button>
           </div>

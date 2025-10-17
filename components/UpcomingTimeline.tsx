@@ -18,12 +18,32 @@ const UpcomingTimeline: React.FC<UpcomingTimelineProps> = ({ items }) => {
     return format(date, 'dd MMM yyyy', { locale: fr });
   };
 
-  const getPriorityColor = (priority?: string) => {
+  const getPriorityStyles = (priority?: string) => {
     switch (priority) {
-      case 'high': return 'bg-red-100 text-red-700 border-red-200';
-      case 'medium': return 'bg-yellow-100 text-yellow-700 border-yellow-200';
-      case 'low': return 'bg-green-100 text-green-700 border-green-200';
-      default: return 'bg-gray-100 text-gray-700 border-gray-200';
+      case 'high': 
+        return {
+          backgroundColor: 'var(--color-danger-light)',
+          color: 'var(--color-danger)',
+          borderColor: 'var(--color-danger)'
+        };
+      case 'medium': 
+        return {
+          backgroundColor: 'var(--color-warning-light)',
+          color: 'var(--color-warning)',
+          borderColor: 'var(--color-warning)'
+        };
+      case 'low': 
+        return {
+          backgroundColor: 'var(--color-success-light)',
+          color: 'var(--color-success)',
+          borderColor: 'var(--color-success)'
+        };
+      default: 
+        return {
+          backgroundColor: 'var(--color-bg-tertiary)',
+          color: 'var(--color-text-secondary)',
+          borderColor: 'var(--color-border)'
+        };
     }
   };
 
@@ -42,24 +62,44 @@ const UpcomingTimeline: React.FC<UpcomingTimelineProps> = ({ items }) => {
     );
   };
 
+  const getTypeStyles = (type: string) => {
+    if (type === 'event') {
+      return {
+        backgroundColor: 'var(--color-primary-light)',
+        color: 'var(--color-primary)'
+      };
+    }
+    return {
+      backgroundColor: 'var(--color-secondary-light)',
+      color: 'var(--color-secondary)'
+    };
+  };
+
   if (items.length === 0) {
     return (
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 text-center">
-        <svg className="w-16 h-16 mx-auto text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <div className="card-theme text-center py-8">
+        <svg className="w-16 h-16 mx-auto text-theme-tertiary mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
         </svg>
-        <p className="text-gray-500">Aucun événement ou tâche à venir</p>
+        <p className="text-theme-tertiary">Aucun événement ou tâche à venir</p>
       </div>
     );
   }
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-      <h3 className="text-lg font-semibold text-gray-900 mb-4">Prochaines échéances</h3>
+    <div className="card-theme">
+      <h3 className="text-lg font-semibold text-theme-primary mb-4">Prochaines échéances</h3>
       <div className="space-y-4">
         {items.map((item) => (
-          <div key={`${item.type}-${item.id}`} className="flex items-start gap-4 pb-4 border-b border-gray-100 last:border-0 last:pb-0">
-            <div className={`p-2 rounded-lg ${item.type === 'event' ? 'bg-blue-50 text-blue-600' : 'bg-purple-50 text-purple-600'}`}>
+          <div 
+            key={`${item.type}-${item.id}`} 
+            className="flex items-start gap-4 pb-4 border-b last:border-0 last:pb-0"
+            style={{ borderColor: 'var(--color-border-light)' }}
+          >
+            <div 
+              className="p-2 rounded-lg"
+              style={getTypeStyles(item.type)}
+            >
               {getTypeIcon(item.type)}
             </div>
             <div className="flex-1 min-w-0">
@@ -67,7 +107,16 @@ const UpcomingTimeline: React.FC<UpcomingTimelineProps> = ({ items }) => {
                 <div className="flex-1">
                   <Link 
                     href={item.type === 'event' ? '/calendrier' : '/taches'}
-                    className="font-medium text-gray-900 hover:text-blue-600 transition-colors"
+                    className="font-medium text-theme-primary hover:opacity-80 transition-all inline-block"
+                    style={{ 
+                      '--hover-color': 'var(--color-primary)'
+                    } as any}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.color = 'var(--color-primary)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.color = '';
+                    }}
                   >
                     {item.title}
                   </Link>
@@ -80,19 +129,30 @@ const UpcomingTimeline: React.FC<UpcomingTimelineProps> = ({ items }) => {
                         className="w-2 h-2 rounded-full" 
                         style={{ backgroundColor: item.project.color }}
                       />
-                      <span className="text-xs text-gray-600 hover:text-blue-600">
+                      <span 
+                        className="text-xs text-theme-secondary hover:opacity-80 transition-all"
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.color = 'var(--color-primary)';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.color = '';
+                        }}
+                      >
                         {item.project.name}
                       </span>
                     </Link>
                   )}
                 </div>
                 {item.priority && (
-                  <span className={`text-xs px-2 py-1 rounded border ${getPriorityColor(item.priority)}`}>
+                  <span 
+                    className="text-xs px-2 py-1 rounded border"
+                    style={getPriorityStyles(item.priority)}
+                  >
                     {item.priority === 'high' ? 'Urgent' : item.priority === 'medium' ? 'Moyen' : 'Faible'}
                   </span>
                 )}
               </div>
-              <p className="text-sm text-gray-600 mt-1">
+              <p className="text-sm text-theme-secondary mt-1">
                 {getDateLabel(item.date)} • {format(parseISO(item.date), 'HH:mm', { locale: fr })}
               </p>
             </div>

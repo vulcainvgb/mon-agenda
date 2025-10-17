@@ -34,31 +34,46 @@ const ProjectAlerts: React.FC<ProjectAlertsProps> = ({ alerts }) => {
 
   const getSeverityStyles = (severity: string) => {
     if (severity === 'danger') {
-      return 'bg-red-50 border-red-200 text-red-800';
+      return {
+        backgroundColor: 'var(--color-danger-light)',
+        borderColor: 'var(--color-danger)',
+        color: 'var(--color-danger)'
+      };
     }
-    return 'bg-yellow-50 border-yellow-200 text-yellow-800';
+    return {
+      backgroundColor: 'var(--color-warning-light)',
+      borderColor: 'var(--color-warning)',
+      color: 'var(--color-warning)'
+    };
   };
 
   if (alerts.length === 0) {
     return (
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 text-center">
-        <svg className="w-16 h-16 mx-auto text-green-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <div className="card-theme text-center py-8">
+        <svg 
+          className="w-16 h-16 mx-auto mb-4" 
+          style={{ color: 'var(--color-success)' }}
+          fill="none" 
+          stroke="currentColor" 
+          viewBox="0 0 24 24"
+        >
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
         </svg>
-        <p className="text-gray-500">Aucune alerte - Tout va bien !</p>
+        <p className="text-theme-tertiary">Aucune alerte - Tout va bien !</p>
       </div>
     );
   }
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-      <h3 className="text-lg font-semibold text-gray-900 mb-4">Alertes projets</h3>
+    <div className="card-theme">
+      <h3 className="text-lg font-semibold text-theme-primary mb-4">Alertes projets</h3>
       <div className="space-y-3">
         {alerts.map((alert) => (
           <Link
             key={alert.id}
             href={`/projets/${alert.project_id}`}
-            className={`block p-4 rounded-lg border-2 ${getSeverityStyles(alert.severity)} hover:shadow-md transition-all`}
+            className="block p-4 rounded-lg border-2 hover:shadow-md transition-all"
+            style={getSeverityStyles(alert.severity)}
           >
             <div className="flex items-start gap-3">
               <div className="flex-shrink-0 mt-0.5">

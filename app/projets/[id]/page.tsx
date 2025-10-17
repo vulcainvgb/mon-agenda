@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../../../lib/supabase'
 import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
-import MonthlyReport from '../../../components/MonthlyReport' // ✅ Import du composant rapport
+import MonthlyReport from '../../../components/MonthlyReport'
 
 interface Project {
   id: string
@@ -227,16 +227,20 @@ export default function ProjectDetailPage() {
   
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <p className="text-xl text-gray-600">⏳ Chargement...</p>
+      <div className="min-h-screen flex items-center justify-center bg-theme-primary">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 border-4 border-t-transparent rounded-full animate-spin" 
+               style={{ borderColor: 'var(--color-primary)', borderTopColor: 'transparent' }}></div>
+          <p className="text-xl text-theme-secondary">Chargement...</p>
+        </div>
       </div>
     )
   }
   
   if (!project) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <p className="text-xl text-gray-600">Projet introuvable</p>
+      <div className="min-h-screen flex items-center justify-center bg-theme-primary">
+        <p className="text-xl text-theme-secondary">Projet introuvable</p>
       </div>
     )
   }
@@ -245,31 +249,32 @@ export default function ProjectDetailPage() {
   const progressPercentage = tasks.length > 0 ? Math.round((tasksDone / tasks.length) * 100) : 0
   
   return (
-    <main className="min-h-screen bg-gray-50 p-8">
+    <main className="min-h-screen bg-theme-secondary p-8">
       <div className="max-w-6xl mx-auto">
         {/* Header */}
         <div className="mb-8">
           <Link
             href="/projets"
-            className="text-purple-600 hover:text-purple-800 mb-4 inline-block"
+            className="text-theme-secondary hover:opacity-80 mb-4 inline-block font-medium"
+            style={{ color: 'var(--color-primary)' }}
           >
             ← Retour aux projets
           </Link>
           
           <div className="flex justify-between items-start">
             <div>
-              <h1 className="text-4xl font-bold text-gray-900 mb-2">
+              <h1 className="text-4xl font-bold text-theme-primary mb-2">
                 {project.name}
               </h1>
               {project.description && (
-                <p className="text-gray-600 text-lg">
+                <p className="text-theme-secondary text-lg">
                   {project.description}
                 </p>
               )}
             </div>
             
             {isRefreshing && (
-              <span className="text-sm text-gray-500 flex items-center gap-2">
+              <span className="text-sm text-theme-tertiary flex items-center gap-2">
                 <span className="animate-spin">🔄</span>
                 Mise à jour...
               </span>
@@ -278,25 +283,28 @@ export default function ProjectDetailPage() {
         </div>
         
         {/* Infos projet */}
-        <div className="bg-white rounded-xl p-6 shadow-md mb-8">
+        <div className="card-theme mb-8">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {/* Progression */}
             <div>
-              <h3 className="text-sm font-medium text-gray-500 mb-2">Progression</h3>
+              <h3 className="text-sm font-medium text-theme-tertiary mb-2">Progression</h3>
               <div className="flex items-center gap-3">
                 <div className="flex-1">
-                  <div className="w-full bg-gray-200 rounded-full h-3">
+                  <div className="w-full bg-theme-tertiary rounded-full h-3">
                     <div
-                      className="bg-green-500 h-3 rounded-full transition-all"
-                      style={{ width: `${progressPercentage}%` }}
+                      className="h-3 rounded-full transition-all"
+                      style={{ 
+                        width: `${progressPercentage}%`,
+                        backgroundColor: 'var(--color-success)'
+                      }}
                     ></div>
                   </div>
                 </div>
-                <span className="text-2xl font-bold text-gray-800">
+                <span className="text-2xl font-bold text-theme-primary">
                   {progressPercentage}%
                 </span>
               </div>
-              <p className="text-sm text-gray-600 mt-1">
+              <p className="text-sm text-theme-secondary mt-1">
                 {tasksDone} / {tasks.length} tâches terminées
               </p>
             </div>
@@ -304,11 +312,11 @@ export default function ProjectDetailPage() {
             {/* Budget */}
             {project.budget_total && (
               <div>
-                <h3 className="text-sm font-medium text-gray-500 mb-2">Budget</h3>
-                <p className="text-2xl font-bold text-gray-800">
+                <h3 className="text-sm font-medium text-theme-tertiary mb-2">Budget</h3>
+                <p className="text-2xl font-bold text-theme-primary">
                   {project.budget_spent || 0}€ / {project.budget_total}€
                 </p>
-                <p className="text-sm text-gray-600 mt-1">
+                <p className="text-sm text-theme-secondary mt-1">
                   Reste : {(project.budget_total - (project.budget_spent || 0)).toFixed(2)}€
                 </p>
               </div>
@@ -317,27 +325,28 @@ export default function ProjectDetailPage() {
             {/* Dates */}
             {(project.start_date || project.end_date) && (
               <div>
-                <h3 className="text-sm font-medium text-gray-500 mb-2">Période</h3>
+                <h3 className="text-sm font-medium text-theme-tertiary mb-2">Période</h3>
                 {project.start_date && (
-                  <p className="text-sm text-gray-700">
+                  <p className="text-sm text-theme-secondary">
                     📅 Début : {new Date(project.start_date).toLocaleDateString('fr-FR')}
                   </p>
                 )}
                 {project.end_date && (
-                  <p className="text-sm text-gray-700">
+                  <p className="text-sm text-theme-secondary">
                     🏁 Fin : {new Date(project.end_date).toLocaleDateString('fr-FR')}
                   </p>
                 )}
               </div>
             )}
+            
             {/* Temps passé */}
             <div>
-              <h3 className="text-sm font-medium text-gray-500 mb-2">Temps passé</h3>
+              <h3 className="text-sm font-medium text-theme-tertiary mb-2">Temps passé</h3>
               <div className="flex items-center gap-2">
-                <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-6 h-6" style={{ color: 'var(--color-primary)' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
-                <span className="text-2xl font-bold text-blue-600">
+                <span className="text-2xl font-bold" style={{ color: 'var(--color-primary)' }}>
                   {(() => {
                     const hours = Math.floor((project.time_spent || 0) / 60);
                     const minutes = (project.time_spent || 0) % 60;
@@ -348,14 +357,14 @@ export default function ProjectDetailPage() {
                   })()}
                 </span>
               </div>
-              <p className="text-sm text-gray-600 mt-1">
+              <p className="text-sm text-theme-secondary mt-1">
                 Sur {events.length} événement{events.length > 1 ? 's' : ''}
               </p>
             </div>
           </div>
         </div>
 
-        {/* ✅ NOUVEAU : Rapport mensuel */}
+        {/* Rapport mensuel */}
         <div className="mb-8">
           <MonthlyReport 
             projectId={projectId} 
@@ -367,12 +376,12 @@ export default function ProjectDetailPage() {
         {/* Section Tâches */}
         <div className="mb-8">
           <div className="flex justify-between items-center mb-4">
-            <h2 className="text-2xl font-bold text-gray-800">
+            <h2 className="text-2xl font-bold text-theme-primary">
               ✅ Tâches du projet ({tasks.length})
             </h2>
             <button
               onClick={() => setShowTaskForm(!showTaskForm)}
-              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+              className="btn-secondary text-sm font-medium"
             >
               {showTaskForm ? '❌ Annuler' : '➕ Ajouter une tâche'}
             </button>
@@ -380,14 +389,16 @@ export default function ProjectDetailPage() {
           
           {/* Formulaire tâche rapide */}
           {showTaskForm && (
-            <div className="bg-blue-50 p-4 rounded-lg mb-4">
+            <div className="bg-theme-primary p-4 rounded-lg mb-4 border-2 border-theme"
+                 style={{ borderColor: 'var(--color-secondary)' }}>
               <div className="flex gap-2">
                 <input
                   type="text"
                   value={newTaskTitle}
                   onChange={(e) => setNewTaskTitle(e.target.value)}
                   placeholder="Titre de la tâche..."
-                  className="flex-1 border border-gray-300 rounded-lg px-4 py-2"
+                  className="flex-1 border border-theme rounded-lg px-4 py-2 bg-theme-primary text-theme-primary focus:outline-none focus:ring-2 focus:ring-opacity-50"
+                  style={{ '--tw-ring-color': 'var(--color-secondary)' } as any}
                   onKeyPress={(e) => {
                     if (e.key === 'Enter') {
                       createTaskInProject()
@@ -396,7 +407,7 @@ export default function ProjectDetailPage() {
                 />
                 <button
                   onClick={createTaskInProject}
-                  className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                  className="btn-secondary font-medium"
                 >
                   Créer
                 </button>
@@ -406,34 +417,35 @@ export default function ProjectDetailPage() {
           
           {/* Liste des tâches */}
           {tasks.length === 0 ? (
-            <div className="bg-white p-8 rounded-xl text-center shadow-md">
-              <p className="text-gray-600">Aucune tâche dans ce projet</p>
-              <p className="text-gray-500 text-sm mt-2">Ajoutez votre première tâche !</p>
+            <div className="card-theme text-center py-8">
+              <p className="text-theme-secondary">Aucune tâche dans ce projet</p>
+              <p className="text-theme-tertiary text-sm mt-2">Ajoutez votre première tâche !</p>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {/* Colonne À faire */}
               <div>
-                <h3 className="font-semibold text-gray-700 mb-3">📝 À faire</h3>
+                <h3 className="font-semibold text-theme-secondary mb-3">📝 À faire</h3>
                 <div className="space-y-2">
                   {tasks.filter(t => t.status === 'todo').map(task => (
-                    <div key={task.id} className="bg-white p-3 rounded-lg shadow-sm border border-gray-200">
-                      <p className="font-medium text-gray-800 mb-2">{task.title}</p>
+                    <div key={task.id} className="bg-theme-primary p-3 rounded-lg shadow-sm border border-theme">
+                      <p className="font-medium text-theme-primary mb-2">{task.title}</p>
                       {task.due_date && (
-                        <p className="text-xs text-gray-500 mb-2">
+                        <p className="text-xs text-theme-tertiary mb-2">
                           📅 {new Date(task.due_date).toLocaleDateString('fr-FR')}
                         </p>
                       )}
                       <div className="flex gap-1">
                         <button
                           onClick={() => updateTaskStatus(task.id, 'in_progress')}
-                          className="flex-1 bg-blue-500 text-white px-2 py-1 rounded text-xs hover:bg-blue-600"
+                          className="flex-1 text-white px-2 py-1 rounded text-xs hover:opacity-80 transition-all"
+                          style={{ backgroundColor: 'var(--color-secondary)' }}
                         >
                           ▶️
                         </button>
                         <button
                           onClick={() => unlinkTask(task.id)}
-                          className="bg-gray-400 text-white px-2 py-1 rounded text-xs hover:bg-gray-500"
+                          className="bg-theme-tertiary text-theme-primary px-2 py-1 rounded text-xs hover:opacity-80 transition-all"
                         >
                           🔗
                         </button>
@@ -445,26 +457,31 @@ export default function ProjectDetailPage() {
               
               {/* Colonne En cours */}
               <div>
-                <h3 className="font-semibold text-gray-700 mb-3">🚀 En cours</h3>
+                <h3 className="font-semibold text-theme-secondary mb-3">🚀 En cours</h3>
                 <div className="space-y-2">
                   {tasks.filter(t => t.status === 'in_progress').map(task => (
-                    <div key={task.id} className="bg-blue-50 p-3 rounded-lg shadow-sm border border-blue-200">
-                      <p className="font-medium text-gray-800 mb-2">{task.title}</p>
+                    <div key={task.id} className="p-3 rounded-lg shadow-sm border-2"
+                         style={{ 
+                           backgroundColor: 'var(--color-secondary-light)',
+                           borderColor: 'var(--color-secondary)'
+                         }}>
+                      <p className="font-medium text-theme-primary mb-2">{task.title}</p>
                       {task.due_date && (
-                        <p className="text-xs text-gray-500 mb-2">
+                        <p className="text-xs text-theme-tertiary mb-2">
                           📅 {new Date(task.due_date).toLocaleDateString('fr-FR')}
                         </p>
                       )}
                       <div className="flex gap-1">
                         <button
                           onClick={() => updateTaskStatus(task.id, 'done')}
-                          className="flex-1 bg-green-500 text-white px-2 py-1 rounded text-xs hover:bg-green-600"
+                          className="flex-1 text-white px-2 py-1 rounded text-xs hover:opacity-80 transition-all"
+                          style={{ backgroundColor: 'var(--color-success)' }}
                         >
                           ✅
                         </button>
                         <button
                           onClick={() => unlinkTask(task.id)}
-                          className="bg-gray-400 text-white px-2 py-1 rounded text-xs hover:bg-gray-500"
+                          className="bg-theme-tertiary text-theme-primary px-2 py-1 rounded text-xs hover:opacity-80 transition-all"
                         >
                           🔗
                         </button>
@@ -476,21 +493,26 @@ export default function ProjectDetailPage() {
               
               {/* Colonne Terminé */}
               <div>
-                <h3 className="font-semibold text-gray-700 mb-3">✅ Terminé</h3>
+                <h3 className="font-semibold text-theme-secondary mb-3">✅ Terminé</h3>
                 <div className="space-y-2">
                   {tasks.filter(t => t.status === 'done').map(task => (
-                    <div key={task.id} className="bg-green-50 p-3 rounded-lg shadow-sm border border-green-200 opacity-75">
-                      <p className="font-medium text-gray-800 mb-2 line-through">{task.title}</p>
+                    <div key={task.id} className="p-3 rounded-lg shadow-sm border-2 opacity-75"
+                         style={{ 
+                           backgroundColor: 'var(--color-success-light)',
+                           borderColor: 'var(--color-success)'
+                         }}>
+                      <p className="font-medium text-theme-primary mb-2 line-through">{task.title}</p>
                       <div className="flex gap-1">
                         <button
                           onClick={() => updateTaskStatus(task.id, 'in_progress')}
-                          className="flex-1 bg-blue-500 text-white px-2 py-1 rounded text-xs hover:bg-blue-600"
+                          className="flex-1 text-white px-2 py-1 rounded text-xs hover:opacity-80 transition-all"
+                          style={{ backgroundColor: 'var(--color-secondary)' }}
                         >
                           ↩️
                         </button>
                         <button
                           onClick={() => unlinkTask(task.id)}
-                          className="bg-gray-400 text-white px-2 py-1 rounded text-xs hover:bg-gray-500"
+                          className="bg-theme-tertiary text-theme-primary px-2 py-1 rounded text-xs hover:opacity-80 transition-all"
                         >
                           🔗
                         </button>
@@ -506,12 +528,12 @@ export default function ProjectDetailPage() {
         {/* Section Événements */}
         <div>
           <div className="flex justify-between items-center mb-4">
-            <h2 className="text-2xl font-bold text-gray-800">
+            <h2 className="text-2xl font-bold text-theme-primary">
               📅 Événements du projet ({events.length})
             </h2>
             <button
               onClick={() => setShowEventForm(!showEventForm)}
-              className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors text-sm font-medium"
+              className="btn-primary text-sm font-medium"
             >
               {showEventForm ? '❌ Annuler' : '➕ Ajouter un événement'}
             </button>
@@ -519,32 +541,36 @@ export default function ProjectDetailPage() {
           
           {/* Formulaire événement rapide */}
           {showEventForm && (
-            <div className="bg-purple-50 p-4 rounded-lg mb-4">
+            <div className="bg-theme-primary p-4 rounded-lg mb-4 border-2 border-theme"
+                 style={{ borderColor: 'var(--color-primary)' }}>
               <div className="space-y-3">
                 <input
                   type="text"
                   value={newEventTitle}
                   onChange={(e) => setNewEventTitle(e.target.value)}
                   placeholder="Titre de l'événement..."
-                  className="w-full border border-gray-300 rounded-lg px-4 py-2"
+                  className="w-full border border-theme rounded-lg px-4 py-2 bg-theme-primary text-theme-primary focus:outline-none focus:ring-2 focus:ring-opacity-50"
+                  style={{ '--tw-ring-color': 'var(--color-primary)' } as any}
                 />
                 <div className="grid grid-cols-2 gap-2">
                   <input
                     type="datetime-local"
                     value={newEventStart}
                     onChange={(e) => setNewEventStart(e.target.value)}
-                    className="border border-gray-300 rounded-lg px-4 py-2"
+                    className="border border-theme rounded-lg px-4 py-2 bg-theme-primary text-theme-primary focus:outline-none focus:ring-2 focus:ring-opacity-50"
+                    style={{ '--tw-ring-color': 'var(--color-primary)' } as any}
                   />
                   <input
                     type="datetime-local"
                     value={newEventEnd}
                     onChange={(e) => setNewEventEnd(e.target.value)}
-                    className="border border-gray-300 rounded-lg px-4 py-2"
+                    className="border border-theme rounded-lg px-4 py-2 bg-theme-primary text-theme-primary focus:outline-none focus:ring-2 focus:ring-opacity-50"
+                    style={{ '--tw-ring-color': 'var(--color-primary)' } as any}
                   />
                 </div>
                 <button
                   onClick={createEventInProject}
-                  className="w-full bg-purple-600 text-white px-6 py-2 rounded-lg hover:bg-purple-700 transition-colors font-medium"
+                  className="w-full btn-primary font-medium"
                 >
                   Créer
                 </button>
@@ -554,21 +580,22 @@ export default function ProjectDetailPage() {
           
           {/* Liste des événements */}
           {events.length === 0 ? (
-            <div className="bg-white p-8 rounded-xl text-center shadow-md">
-              <p className="text-gray-600">Aucun événement dans ce projet</p>
-              <p className="text-gray-500 text-sm mt-2">Ajoutez votre premier événement !</p>
+            <div className="card-theme text-center py-8">
+              <p className="text-theme-secondary">Aucun événement dans ce projet</p>
+              <p className="text-theme-tertiary text-sm mt-2">Ajoutez votre premier événement !</p>
             </div>
           ) : (
             <div className="space-y-3">
               {events.map(event => (
-                <div key={event.id} className="bg-white p-4 rounded-lg shadow-md border-l-4 border-purple-500">
+                <div key={event.id} className="card-theme border-l-4"
+                     style={{ borderLeftColor: 'var(--color-primary)' }}>
                   <div className="flex justify-between items-start">
                     <div className="flex-1">
-                      <h3 className="font-semibold text-gray-800 mb-2">{event.title}</h3>
+                      <h3 className="font-semibold text-theme-primary mb-2">{event.title}</h3>
                       {event.description && (
-                        <p className="text-sm text-gray-600 mb-2">{event.description}</p>
+                        <p className="text-sm text-theme-secondary mb-2">{event.description}</p>
                       )}
-                      <div className="flex gap-4 text-sm text-gray-500">
+                      <div className="flex gap-4 text-sm text-theme-tertiary">
                         <span>🕐 {new Date(event.start_time).toLocaleString('fr-FR')}</span>
                         <span>→</span>
                         <span>🕑 {new Date(event.end_time).toLocaleString('fr-FR')}</span>
@@ -576,7 +603,7 @@ export default function ProjectDetailPage() {
                     </div>
                     <button
                       onClick={() => unlinkEvent(event.id)}
-                      className="bg-gray-400 text-white px-3 py-1 rounded text-sm hover:bg-gray-500"
+                      className="bg-theme-tertiary text-theme-primary px-3 py-1 rounded text-sm hover:opacity-80 transition-all"
                       title="Dissocier du projet"
                     >
                       🔗

@@ -15,17 +15,17 @@ const TasksChart: React.FC<TasksChartProps> = ({ data }) => {
   }));
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-      <h3 className="text-lg font-semibold text-gray-900 mb-6">Distribution des tâches</h3>
+    <div className="card-theme">
+      <h3 className="text-lg font-semibold text-theme-primary mb-6">Distribution des tâches</h3>
       
       {total === 0 ? (
         <div className="text-center py-8">
-          <p className="text-gray-500">Aucune tâche pour le moment</p>
+          <p className="text-theme-tertiary">Aucune tâche pour le moment</p>
         </div>
       ) : (
         <div className="space-y-6">
           {/* Barre de progression */}
-          <div className="h-8 bg-gray-100 rounded-full overflow-hidden flex">
+          <div className="h-8 bg-theme-tertiary rounded-full overflow-hidden flex">
             {dataWithPercentage.map((item, index) => (
               item.value > 0 && (
                 <div
@@ -44,19 +44,19 @@ const TasksChart: React.FC<TasksChartProps> = ({ data }) => {
           {/* Légende avec détails */}
           <div className="grid grid-cols-1 gap-3">
             {dataWithPercentage.map((item, index) => (
-              <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+              <div key={index} className="flex items-center justify-between p-3 bg-theme-secondary rounded-lg hover:opacity-90 transition-all">
                 <div className="flex items-center gap-3">
                   <div 
                     className="w-4 h-4 rounded"
                     style={{ backgroundColor: item.color }}
                   />
-                  <span className="font-medium text-gray-700">{item.name}</span>
+                  <span className="font-medium text-theme-secondary">{item.name}</span>
                 </div>
                 <div className="flex items-center gap-3">
-                  <span className="text-sm text-gray-600">
+                  <span className="text-sm text-theme-tertiary">
                     {item.percentage.toFixed(1)}%
                   </span>
-                  <span className="font-bold text-gray-900 min-w-[2rem] text-right">
+                  <span className="font-bold text-theme-primary min-w-[2rem] text-right">
                     {item.value}
                   </span>
                 </div>
@@ -65,10 +65,10 @@ const TasksChart: React.FC<TasksChartProps> = ({ data }) => {
           </div>
 
           {/* Total */}
-          <div className="pt-4 border-t border-gray-200">
+          <div className="pt-4 border-t border-theme">
             <div className="flex items-center justify-between">
-              <span className="font-semibold text-gray-900">Total</span>
-              <span className="text-2xl font-bold text-gray-900">{total}</span>
+              <span className="font-semibold text-theme-primary">Total</span>
+              <span className="text-2xl font-bold text-theme-primary">{total}</span>
             </div>
           </div>
         </div>

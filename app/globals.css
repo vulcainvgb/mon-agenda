@@ -2,183 +2,159 @@
 @import "tailwindcss";
 
 /* ========================================
-   VARIABLES DE BASE (existantes)
+   🎨 VARIABLES DU SYSTÈME DE THÈMES
+   Gérées dynamiquement par lib/themes.ts
    ======================================== */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
-/* ========================================
-   VARIABLES POUR LE SYSTÈME DE THÈMES
-   ======================================== */
-:root {
-  /* Couleurs du thème (seront surchargées par ThemeProvider) */
+  /* Couleurs principales */
   --color-primary: #3b82f6;
+  --color-primary-hover: #2563eb;
+  --color-primary-light: #dbeafe;
+  
+  /* Couleurs secondaires */
   --color-secondary: #8b5cf6;
-  --color-accent: #06b6d4;
-  --color-surface: #f9fafb;
-  --color-text: #171717;
-  --color-text-secondary: #6b7280;
+  --color-secondary-hover: #7c3aed;
+  --color-secondary-light: #ede9fe;
   
-  /* Polices du thème */
-  --font-heading: var(--font-geist-sans);
-  --font-body: var(--font-geist-sans);
+  /* Backgrounds */
+  --color-bg-primary: #ffffff;
+  --color-bg-secondary: #f9fafb;
+  --color-bg-tertiary: #f3f4f6;
   
-  /* Espacements */
-  --spacing-unit: 8px;
+  /* Textes */
+  --color-text-primary: #111827;
+  --color-text-secondary: #4b5563;
+  --color-text-tertiary: #9ca3af;
   
-  /* Effets */
-  --border-radius: 8px;
-  --shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  /* Bordures */
+  --color-border: #e5e7eb;
+  --color-border-light: #f3f4f6;
+  
+  /* États */
+  --color-success: #10b981;
+  --color-warning: #f59e0b;
+  --color-error: #ef4444;
+  --color-info: #3b82f6;
 }
 
 /* ========================================
-   STYLES DE BASE
+   📐 STYLES DE BASE
    ======================================== */
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
-  transition: background 0.3s ease, color 0.3s ease;
-}
-
-/* Effet spécial pour le thème Sakura */
-body[data-theme="sakura"] {
-  background: var(--background-image, var(--background));
-  background-attachment: fixed;
-  position: relative;
-}
-
-body[data-theme="sakura"]::before {
-  content: '';
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: var(--background-pattern, none);
-  pointer-events: none;
-  opacity: 1;
-  z-index: 0;
-}
-
-body[data-theme="sakura"] > * {
-  position: relative;
-  z-index: 1;
-}
-
-/* Scrollbar personnalisée pour le thème Sakura */
-body[data-theme="sakura"]::-webkit-scrollbar {
-  width: 12px;
-}
-
-body[data-theme="sakura"]::-webkit-scrollbar-track {
-  background: #FFF5F7;
-}
-
-body[data-theme="sakura"]::-webkit-scrollbar-thumb {
-  background: #FFB7C5;
-  border-radius: 6px;
-}
-
-body[data-theme="sakura"]::-webkit-scrollbar-thumb:hover {
-  background: #FF69B4;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 /* ========================================
-   CLASSES UTILITAIRES POUR LES THÈMES
+   🧩 CLASSES UTILITAIRES THÈME
    ======================================== */
-.themed-card {
-  background: var(--color-surface);
-  border-radius: var(--border-radius);
-  box-shadow: var(--shadow);
-  padding: calc(var(--spacing-unit) * 3);
-  transition: all 0.3s ease;
+
+/* Backgrounds */
+.bg-theme-primary { 
+  background-color: var(--color-bg-primary); 
+}
+.bg-theme-secondary { 
+  background-color: var(--color-bg-secondary); 
+}
+.bg-theme-tertiary { 
+  background-color: var(--color-bg-tertiary); 
 }
 
-.themed-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+/* Textes */
+.text-theme-primary { 
+  color: var(--color-text-primary); 
+}
+.text-theme-secondary { 
+  color: var(--color-text-secondary); 
+}
+.text-theme-tertiary { 
+  color: var(--color-text-tertiary); 
 }
 
-.themed-btn-primary {
-  background: var(--color-primary);
+/* Bordures */
+.border-theme { 
+  border-color: var(--color-border); 
+}
+.border-theme-light { 
+  border-color: var(--color-border-light); 
+}
+
+/* Boutons thématisés */
+.btn-primary {
+  background-color: var(--color-primary);
   color: white;
-  border: none;
-  border-radius: var(--border-radius);
-  padding: calc(var(--spacing-unit) * 1.5) calc(var(--spacing-unit) * 3);
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
   font-weight: 500;
-  cursor: pointer;
-  transition: all 0.3s ease;
+  transition: all 0.2s ease;
 }
 
-.themed-btn-primary:hover {
+.btn-primary:hover {
+  background-color: var(--color-primary-hover);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+.btn-secondary {
+  background-color: var(--color-secondary);
+  color: white;
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.btn-secondary:hover {
+  background-color: var(--color-secondary-hover);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+/* Cartes thématisées */
+.card-theme {
+  background-color: var(--color-bg-primary);
+  border: 1px solid var(--color-border);
+  border-radius: 0.75rem;
+  padding: 1.5rem;
+  transition: all 0.2s ease;
+}
+
+.card-theme:hover {
   transform: translateY(-2px);
-  opacity: 0.9;
-}
-
-.themed-text-primary {
-  color: var(--color-primary);
-}
-
-.themed-text-secondary {
-  color: var(--color-text-secondary);
-}
-
-.themed-bg-primary {
-  background: var(--color-primary);
-}
-
-.themed-border-primary {
-  border-color: var(--color-primary);
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
 }
 
 /* ========================================
-   STYLES DU CALENDRIER (existants)
+   📅 STYLES DU CALENDRIER (react-big-calendar)
    ======================================== */
 
-/* Événement pendant le drag */
+/* Drag & Drop */
 .rbc-addons-dnd-dragging {
   opacity: 0.7;
   cursor: move !important;
 }
 
-/* Zone de drop valide */
 .rbc-addons-dnd-over {
   background-color: rgba(59, 130, 246, 0.1) !important;
 }
 
-/* Événement en cours de resize */
 .rbc-addons-dnd-resizing {
   opacity: 0.7;
 }
 
-/* Curseur lors du resize */
+/* Événements */
 .rbc-event {
   cursor: move;
   transition: all 0.2s ease;
 }
 
-.rbc-event.rbc-selected {
-  cursor: move;
+.rbc-event:hover {
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  transform: translateY(-1px);
+  z-index: 100;
 }
 
-/* Poignées de resize (haut et bas de l'événement) */
+/* Poignées de resize */
 .rbc-addons-dnd-resize-ns-anchor {
   cursor: ns-resize !important;
 }
@@ -187,52 +163,18 @@ body[data-theme="sakura"]::-webkit-scrollbar-thumb:hover {
   cursor: ew-resize !important;
 }
 
-/* Feedback visuel amélioré */
-.rbc-event:hover {
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-  transform: translateY(-1px);
-  z-index: 100;
-}
-
-/* Adaptation du calendrier au thème Sakura */
-body[data-theme="sakura"] .rbc-event {
-  background-color: var(--color-primary);
-  border-color: var(--color-secondary);
-}
-
-body[data-theme="sakura"] .rbc-today {
-  background-color: rgba(255, 183, 197, 0.1);
-}
-
-body[data-theme="sakura"] .rbc-addons-dnd-over {
-  background-color: rgba(255, 183, 197, 0.2) !important;
+/* Aujourd'hui */
+.rbc-today {
+  background-color: var(--color-primary-light);
 }
 
 /* ========================================
-   ANIMATIONS (existantes)
+   ⚡ ANIMATIONS
    ======================================== */
-@keyframes pulse {
-  0%, 100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: .5;
-  }
-}
-
-@keyframes spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
-}
-
 @keyframes fadeIn {
   from {
     opacity: 0;
-    transform: translateY(20px);
+    transform: translateY(10px);
   }
   to {
     opacity: 1;
@@ -240,74 +182,52 @@ body[data-theme="sakura"] .rbc-addons-dnd-over {
   }
 }
 
-.animate-pulse {
-  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-}
-
-.animate-spin {
-  animation: spin 1s linear infinite;
-}
-
-.fade-in {
-  animation: fadeIn 0.5s ease-out;
-}
-
-/* ========================================
-   ANIMATIONS SAKURA (pétales qui tombent)
-   ======================================== */
-@keyframes sakura-fall {
-  0% {
-    transform: translateY(-100vh) rotate(0deg);
-    opacity: 1;
-  }
-  100% {
-    transform: translateY(100vh) rotate(360deg);
+@keyframes slideIn {
+  from {
     opacity: 0;
+    transform: translateX(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
   }
 }
 
-body[data-theme="sakura"] .sakura-petal {
-  position: fixed;
+.animate-fade-in {
+  animation: fadeIn 0.3s ease-out;
+}
+
+.animate-slide-in {
+  animation: slideIn 0.3s ease-out;
+}
+
+/* Transition globale pour changement de thème */
+* {
+  transition-property: background-color, border-color, color;
+  transition-duration: 0.2s;
+  transition-timing-function: ease-in-out;
+}
+
+/* Exceptions pour les éléments qui ne doivent pas avoir de transition */
+input, textarea, select, button {
+  transition: none;
+}
+
+/* Scrollbar personnalisée */
+::-webkit-scrollbar {
   width: 10px;
   height: 10px;
-  background: radial-gradient(circle, #FFB7C5 0%, #FF69B4 100%);
-  border-radius: 50% 0 50% 0;
-  animation: sakura-fall linear infinite;
-  pointer-events: none;
-  z-index: 9999;
 }
 
-/* Variantes de pétales pour effet plus naturel */
-body[data-theme="sakura"] .sakura-petal:nth-child(1) {
-  left: 10%;
-  animation-duration: 15s;
-  animation-delay: 0s;
+::-webkit-scrollbar-track {
+  background: var(--color-bg-secondary);
 }
 
-body[data-theme="sakura"] .sakura-petal:nth-child(2) {
-  left: 30%;
-  animation-duration: 18s;
-  animation-delay: 2s;
-  width: 12px;
-  height: 12px;
+::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 5px;
 }
 
-body[data-theme="sakura"] .sakura-petal:nth-child(3) {
-  left: 50%;
-  animation-duration: 20s;
-  animation-delay: 4s;
-}
-
-body[data-theme="sakura"] .sakura-petal:nth-child(4) {
-  left: 70%;
-  animation-duration: 16s;
-  animation-delay: 1s;
-  width: 8px;
-  height: 8px;
-}
-
-body[data-theme="sakura"] .sakura-petal:nth-child(5) {
-  left: 90%;
-  animation-duration: 19s;
-  animation-delay: 3s;
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-tertiary);
 }
