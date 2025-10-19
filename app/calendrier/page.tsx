@@ -29,6 +29,23 @@ interface CalendarEvent {
   resource: Event;
 }
 
+interface Contact {
+  id: string;
+  first_name: string;
+  last_name: string;
+  email?: string;
+}
+
+interface EventContact {
+  id: string;
+  event_id: string;
+  contact_id: string;
+  contact?: Contact;
+  role: string;
+  rsvp_status: string;
+  notified: boolean;
+}
+
 const timezoneUtils = {
   parseFromDB: (dateStr: string | Date): Date => {
     if (dateStr instanceof Date) return dateStr;
@@ -66,12 +83,15 @@ export default function CalendrierPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [projects, setProjects] = useState<Project[]>([]);
+  const [contacts, setContacts] = useState<Contact[]>([]);
   const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>([]);
+  const [eventContacts, setEventContacts] = useState<{ [eventId: string]: EventContact[] }>({});
   const [currentView, setCurrentView] = useState<typeof Views[keyof typeof Views]>(Views.MONTH);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [isDragging, setIsDragging] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
+  const [selectedContacts, setSelectedContacts] = useState<Array<{ contact_id: string; role: string; rsvp_status: string }>>([]);
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -102,8 +122,6 @@ export default function CalendrierPage() {
     return () => clearInterval(interval);
   }, []);
 
- 
-
   const checkUser = async () => {
     const { data: { session } } = await supabase.auth.getSession();
     console.log('🔐 checkUser - Session:', {
@@ -122,21 +140,52 @@ export default function CalendrierPage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      const [eventsRes, projectsRes] = await Promise.all([
+      const [eventsRes, projectsRes, contactsRes] = await Promise.all([
         supabase.from('events').select('*, project:projects(*)').eq('user_id', user.id).order('start_time', { ascending: true }),
-        supabase.from('projects').select('*').eq('user_id', user.id)
+        supabase.from('projects').select('*').eq('user_id', user.id),
+        supabase.from('contacts').select('id, first_name, last_name, email').eq('user_id', user.id).eq('status', 'active').order('last_name', { ascending: true })
       ]);
 
       console.log('🔍 Événements reçus de Supabase:', eventsRes.data);
 
       if (eventsRes.data) {
         convertToCalendarEvents(eventsRes.data);
+        await loadEventContacts(eventsRes.data.map(e => e.id));
       }
       if (projectsRes.data) setProjects(projectsRes.data);
+      if (contactsRes.data) setContacts(contactsRes.data);
       setLoading(false);
     } catch (error) {
       console.error('❌ Erreur chargement:', error);
       setLoading(false);
+    }
+  };
+
+  const loadEventContacts = async (eventIds: string[]) => {
+    if (eventIds.length === 0) return;
+    
+    try {
+      const { data, error } = await supabase
+        .from('event_contacts')
+        .select(`
+          *,
+          contact:contacts(*)
+        `)
+        .in('event_id', eventIds);
+
+      if (error) throw error;
+
+      const contactsByEvent: { [eventId: string]: EventContact[] } = {};
+      (data || []).forEach((ec: EventContact) => {
+        if (!contactsByEvent[ec.event_id]) {
+          contactsByEvent[ec.event_id] = [];
+        }
+        contactsByEvent[ec.event_id].push(ec);
+      });
+
+      setEventContacts(contactsByEvent);
+    } catch (error) {
+      console.error('❌ Erreur chargement contacts événements:', error);
     }
   };
 
@@ -180,10 +229,11 @@ export default function CalendrierPage() {
       project_id: ''
     });
     setSelectedEvent(null);
+    setSelectedContacts([]);
     setShowModal(true);
   };
 
-  const handleSelectEvent = (event: CalendarEvent) => {
+  const handleSelectEvent = async (event: CalendarEvent) => {
     const fullEvent = event.resource;
     console.log('📝 Édition événement:', {
       title: fullEvent.title,
@@ -200,6 +250,23 @@ export default function CalendrierPage() {
       color: fullEvent.color,
       project_id: fullEvent.project_id || ''
     });
+
+    // Charger les contacts de cet événement
+    const { data, error } = await supabase
+      .from('event_contacts')
+      .select('*')
+      .eq('event_id', fullEvent.id);
+
+    if (!error && data) {
+      setSelectedContacts(data.map(ec => ({
+        contact_id: ec.contact_id,
+        role: ec.role,
+        rsvp_status: ec.rsvp_status,
+      })));
+    } else {
+      setSelectedContacts([]);
+    }
+
     setShowModal(true);
   };
 
@@ -302,12 +369,51 @@ export default function CalendrierPage() {
         project_id: formData.project_id || null
       };
 
+      let eventId: string;
+
       if (selectedEvent) {
+        // Mode édition
         await supabase.from('events').update(eventData).eq('id', selectedEvent.id);
         console.log('✅ Événement mis à jour');
+        eventId = selectedEvent.id;
+
+        // Supprimer les anciens contacts
+        await supabase
+          .from('event_contacts')
+          .delete()
+          .eq('event_id', eventId);
       } else {
-        await supabase.from('events').insert([eventData]);
+        // Mode création
+        const { data, error } = await supabase
+          .from('events')
+          .insert([eventData])
+          .select()
+          .single();
+
+        if (error) throw error;
         console.log('✅ Événement créé');
+        eventId = data.id;
+      }
+
+      // Ajouter les nouveaux contacts
+      if (selectedContacts.length > 0) {
+        const contactsToInsert = selectedContacts.map(sc => ({
+          event_id: eventId,
+          contact_id: sc.contact_id,
+          role: sc.role,
+          rsvp_status: sc.rsvp_status,
+          notified: false,
+        }));
+
+        const { error: contactError } = await supabase
+          .from('event_contacts')
+          .insert(contactsToInsert);
+
+        if (contactError) {
+          console.error('❌ Erreur ajout contacts:', contactError);
+        } else {
+          console.log('✅ Contacts ajoutés');
+        }
       }
 
       setShowModal(false);
@@ -417,6 +523,7 @@ export default function CalendrierPage() {
                   project_id: ''
                 });
                 setSelectedEvent(null);
+                setSelectedContacts([]);
                 setShowModal(true);
               }}
               className="btn-primary flex items-center gap-2"
@@ -486,6 +593,9 @@ export default function CalendrierPage() {
             formData={formData}
             setFormData={setFormData}
             projects={projects}
+            contacts={contacts}
+            selectedContacts={selectedContacts}
+            setSelectedContacts={setSelectedContacts}
             onSave={handleSave}
             onDelete={handleDelete}
           />

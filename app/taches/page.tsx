@@ -25,10 +25,28 @@ interface Project {
   color?: string
 }
 
+interface Contact {
+  id: string
+  first_name: string
+  last_name: string
+  email?: string
+}
+
+interface TaskContact {
+  id: string
+  task_id: string
+  contact_id: string
+  contact?: Contact
+  role: string
+  notified: boolean
+}
+
 export default function TachesPage() {
   const [user, setUser] = useState<any>(null)
   const [tasks, setTasks] = useState<Task[]>([])
   const [projects, setProjects] = useState<Project[]>([])
+  const [contacts, setContacts] = useState<Contact[]>([])
+  const [taskContacts, setTaskContacts] = useState<{ [taskId: string]: TaskContact[] }>({})
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [isRefreshing, setIsRefreshing] = useState(false)
@@ -38,17 +56,20 @@ export default function TachesPage() {
   const [description, setDescription] = useState('')
   const [dueDate, setDueDate] = useState('')
   const [projectId, setProjectId] = useState('')
+  const [selectedContacts, setSelectedContacts] = useState<Array<{ contact_id: string; role: string }>>([])
   
   const [editingTask, setEditingTask] = useState<Task | null>(null)
   const [editTitle, setEditTitle] = useState('')
   const [editDescription, setEditDescription] = useState('')
   const [editDueDate, setEditDueDate] = useState('')
   const [editProjectId, setEditProjectId] = useState('')
+  const [editSelectedContacts, setEditSelectedContacts] = useState<Array<{ contact_id: string; role: string }>>([])
   
   useEffect(() => {
     checkUser()
     loadTasks()
     loadProjects()
+    loadContacts()
   }, [])
   
   useEffect(() => {
@@ -98,9 +119,40 @@ export default function TachesPage() {
       console.error('Erreur chargement:', error)
     } else {
       setTasks(data || [])
+      if (data) {
+        await loadTaskContacts(data.map(t => t.id))
+      }
     }
     setLoading(false)
     setIsRefreshing(false)
+  }
+
+  const loadTaskContacts = async (taskIds: string[]) => {
+    if (taskIds.length === 0) return
+    
+    try {
+      const { data, error } = await supabase
+        .from('task_contacts')
+        .select(`
+          *,
+          contact:contacts(*)
+        `)
+        .in('task_id', taskIds)
+
+      if (error) throw error
+
+      const contactsByTask: { [taskId: string]: TaskContact[] } = {}
+      ;(data || []).forEach((tc: TaskContact) => {
+        if (!contactsByTask[tc.task_id]) {
+          contactsByTask[tc.task_id] = []
+        }
+        contactsByTask[tc.task_id].push(tc)
+      })
+
+      setTaskContacts(contactsByTask)
+    } catch (error) {
+      console.error('Erreur chargement contacts de tâches:', error)
+    }
   }
   
   const loadProjects = async () => {
@@ -114,6 +166,18 @@ export default function TachesPage() {
       setProjects(data || [])
     }
   }
+
+  const loadContacts = async () => {
+    const { data, error } = await supabase
+      .from('contacts')
+      .select('id, first_name, last_name, email')
+      .eq('status', 'active')
+      .order('last_name', { ascending: true })
+    
+    if (!error) {
+      setContacts(data || [])
+    }
+  }
   
   const createTask = async () => {
     if (!title) {
@@ -121,7 +185,7 @@ export default function TachesPage() {
       return
     }
     
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('tasks')
       .insert([
         {
@@ -133,18 +197,40 @@ export default function TachesPage() {
           status: 'todo'
         }
       ])
+      .select()
+      .single()
     
     if (error) {
       console.error('Erreur création:', error)
       alert('Erreur lors de la création')
-    } else {
-      setTitle('')
-      setDescription('')
-      setDueDate('')
-      setProjectId('')
-      setShowForm(false)
-      loadTasks()
+      return
     }
+
+    // Ajouter les contacts
+    if (selectedContacts.length > 0) {
+      const contactsToInsert = selectedContacts.map(sc => ({
+        task_id: data.id,
+        contact_id: sc.contact_id,
+        role: sc.role,
+        notified: false,
+      }))
+
+      const { error: contactError } = await supabase
+        .from('task_contacts')
+        .insert(contactsToInsert)
+
+      if (contactError) {
+        console.error('Erreur ajout contacts:', contactError)
+      }
+    }
+
+    setTitle('')
+    setDescription('')
+    setDueDate('')
+    setProjectId('')
+    setSelectedContacts([])
+    setShowForm(false)
+    loadTasks()
   }
   
   const updateTaskStatus = async (taskId: string, newStatus: 'todo' | 'in_progress' | 'done') => {
@@ -175,13 +261,29 @@ export default function TachesPage() {
     }
   }
   
-  const startEdit = (task: Task) => {
+  const startEdit = async (task: Task) => {
     setEditingTask(task)
     setEditTitle(task.title)
     setEditDescription(task.description || '')
     setEditDueDate(task.due_date || '')
     setEditProjectId(task.project_id || '')
     setShowForm(false)
+
+    // Charger les contacts de la tâche
+    const { data, error } = await supabase
+      .from('task_contacts')
+      .select('*')
+      .eq('task_id', task.id)
+
+    if (!error && data) {
+      setEditSelectedContacts(data.map(tc => ({
+        contact_id: tc.contact_id,
+        role: tc.role,
+      })))
+    } else {
+      setEditSelectedContacts([])
+    }
+
     setTimeout(() => {
       window.scrollTo({ top: 0, behavior: 'smooth' })
     }, 100)
@@ -193,6 +295,7 @@ export default function TachesPage() {
     setEditDescription('')
     setEditDueDate('')
     setEditProjectId('')
+    setEditSelectedContacts([])
   }
   
   const saveEdit = async () => {
@@ -215,16 +318,97 @@ export default function TachesPage() {
     if (error) {
       console.error('Erreur mise à jour:', error)
       alert('Erreur lors de la mise à jour')
-    } else {
-      cancelEdit()
-      loadTasks()
+      return
     }
+
+    // Supprimer les anciens contacts et ajouter les nouveaux
+    await supabase
+      .from('task_contacts')
+      .delete()
+      .eq('task_id', editingTask.id)
+
+    if (editSelectedContacts.length > 0) {
+      const contactsToInsert = editSelectedContacts.map(sc => ({
+        task_id: editingTask.id,
+        contact_id: sc.contact_id,
+        role: sc.role,
+        notified: false,
+      }))
+
+      const { error: contactError } = await supabase
+        .from('task_contacts')
+        .insert(contactsToInsert)
+
+      if (contactError) {
+        console.error('Erreur mise à jour contacts:', contactError)
+      }
+    }
+
+    cancelEdit()
+    loadTasks()
   }
   
   const getProjectName = (projectId?: string) => {
     if (!projectId) return null
     const project = projects.find(p => p.id === projectId)
     return project
+  }
+
+  const addContact = (isEdit: boolean = false) => {
+    if (contacts.length === 0) {
+      alert('Aucun contact disponible. Créez d\'abord des contacts.')
+      return
+    }
+    const newContact = { contact_id: contacts[0].id, role: 'assigned' }
+    if (isEdit) {
+      setEditSelectedContacts([...editSelectedContacts, newContact])
+    } else {
+      setSelectedContacts([...selectedContacts, newContact])
+    }
+  }
+
+  const removeContact = (index: number, isEdit: boolean = false) => {
+    if (isEdit) {
+      setEditSelectedContacts(editSelectedContacts.filter((_, i) => i !== index))
+    } else {
+      setSelectedContacts(selectedContacts.filter((_, i) => i !== index))
+    }
+  }
+
+  const updateContactRole = (index: number, role: string, isEdit: boolean = false) => {
+    if (isEdit) {
+      const updated = [...editSelectedContacts]
+      updated[index].role = role
+      setEditSelectedContacts(updated)
+    } else {
+      const updated = [...selectedContacts]
+      updated[index].role = role
+      setSelectedContacts(updated)
+    }
+  }
+
+  const updateContactId = (index: number, contactId: string, isEdit: boolean = false) => {
+    if (isEdit) {
+      const updated = [...editSelectedContacts]
+      updated[index].contact_id = contactId
+      setEditSelectedContacts(updated)
+    } else {
+      const updated = [...selectedContacts]
+      updated[index].contact_id = contactId
+      setSelectedContacts(updated)
+    }
+  }
+
+  const roleLabels: { [key: string]: string } = {
+    assigned: 'Assigné',
+    reviewer: 'Reviewer',
+    observer: 'Observateur',
+  }
+
+  const roleColors: { [key: string]: string } = {
+    assigned: '#3b82f6',
+    reviewer: '#f59e0b',
+    observer: '#6b7280',
   }
   
   const todoTasks = tasks.filter(t => t.status === 'todo')
@@ -243,6 +427,144 @@ export default function TachesPage() {
         >
           ⏳ Chargement...
         </p>
+      </div>
+    )
+  }
+
+  const TaskCard = ({ task }: { task: Task }) => {
+    const project = getProjectName(task.project_id)
+    const taskContactsList = taskContacts[task.id] || []
+
+    return (
+      <div
+        className="p-4 rounded-lg border hover:shadow-md transition-shadow"
+        style={{
+          backgroundColor: task.status === 'in_progress' ? 'var(--color-primary-light)' : 
+                          task.status === 'done' ? 'var(--color-success)20' : 'var(--color-bg-secondary)',
+          borderColor: task.status === 'in_progress' ? 'var(--color-primary)' : 
+                      task.status === 'done' ? 'var(--color-success)40' : 'var(--color-border)',
+          opacity: task.status === 'done' ? 0.75 : 1
+        }}
+      >
+        <h3 
+          className={`font-semibold mb-2 ${task.status === 'done' ? 'line-through' : ''}`}
+          style={{ color: 'var(--color-text-primary)' }}
+        >
+          {task.title}
+        </h3>
+        
+        {task.description && (
+          <p 
+            className="text-sm mb-3"
+            style={{ color: 'var(--color-text-secondary)' }}
+          >
+            {task.description}
+          </p>
+        )}
+
+        {/* Contacts assignés */}
+        {taskContactsList.length > 0 && (
+          <div className="mb-3 flex flex-wrap gap-1">
+            {taskContactsList.map((tc) => (
+              <div
+                key={tc.id}
+                className="text-xs px-2 py-1 rounded-full flex items-center gap-1"
+                style={{
+                  backgroundColor: `${roleColors[tc.role]}20`,
+                  color: roleColors[tc.role],
+                }}
+              >
+                <span>👤</span>
+                <span>{tc.contact?.first_name} {tc.contact?.last_name}</span>
+                <span className="opacity-60">({roleLabels[tc.role]})</span>
+              </div>
+            ))}
+          </div>
+        )}
+        
+        {task.due_date && (
+          <p 
+            className="text-xs mb-2"
+            style={{ color: 'var(--color-text-tertiary)' }}
+          >
+            📅 Échéance : {new Date(task.due_date).toLocaleDateString('fr-FR')}
+          </p>
+        )}
+
+        <TaskTimer 
+          task={task} 
+          onUpdateTime={updateTaskTime}
+          className="mb-2"
+        />
+        
+        {project && (
+          <Link
+            href={`/projets/${project.id}`}
+            className="inline-block mb-3"
+          >
+            <span
+              className="text-xs px-2 py-1 rounded-full text-white"
+              style={{ backgroundColor: project.color || '#8b5cf6' }}
+            >
+              📁 {project.name}
+            </span>
+          </Link>
+        )}
+        
+        <div className="flex gap-2">
+          <button
+            onClick={() => startEdit(task)}
+            className="text-white px-3 py-1 rounded text-sm"
+            style={{ backgroundColor: 'var(--color-text-tertiary)' }}
+          >
+            ✏️
+          </button>
+          
+          {task.status === 'todo' && (
+            <button
+              onClick={() => updateTaskStatus(task.id, 'in_progress')}
+              className="btn-primary flex-1 text-sm"
+            >
+              ▶️ Commencer
+            </button>
+          )}
+          
+          {task.status === 'in_progress' && (
+            <>
+              <button
+                onClick={() => updateTaskStatus(task.id, 'todo')}
+                className="text-white px-3 py-1 rounded text-sm"
+                style={{ backgroundColor: 'var(--color-text-tertiary)' }}
+              >
+                ⬅️
+              </button>
+              <button
+                onClick={() => updateTaskStatus(task.id, 'done')}
+                className="flex-1 text-white px-3 py-1 rounded text-sm"
+                style={{ backgroundColor: 'var(--color-success)' }}
+              >
+                ✅ Terminer
+              </button>
+            </>
+          )}
+          
+          {task.status === 'done' && (
+            <button
+              onClick={() => updateTaskStatus(task.id, 'in_progress')}
+              className="btn-primary flex-1 text-sm"
+            >
+              ↩️ Reprendre
+            </button>
+          )}
+          
+          <button
+            onClick={() => deleteTask(task.id)}
+            className="text-white px-3 py-1 rounded text-sm"
+            style={{ backgroundColor: 'var(--color-error)' }}
+          >
+            🗑️
+          </button>
+        </div>
       </div>
     )
   }
@@ -391,6 +713,87 @@ export default function TachesPage() {
                   </select>
                 </div>
               </div>
+
+              {/* Contacts */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label 
+                    className="block text-sm font-medium"
+                    style={{ color: 'var(--color-text-secondary)' }}
+                  >
+                    👥 Contacts assignés
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => addContact(true)}
+                    className="text-sm px-3 py-1 rounded"
+                    style={{
+                      backgroundColor: 'var(--color-primary)',
+                      color: 'white',
+                    }}
+                  >
+                    + Ajouter
+                  </button>
+                </div>
+
+                {editSelectedContacts.length === 0 ? (
+                  <p className="text-sm text-center py-4" style={{ color: 'var(--color-text-secondary)' }}>
+                    Aucun contact assigné
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {editSelectedContacts.map((sc, index) => (
+                      <div
+                        key={index}
+                        className="flex gap-2 items-center p-2 rounded-lg"
+                        style={{
+                          backgroundColor: 'var(--color-bg-primary)',
+                        }}
+                      >
+                        <select
+                          value={sc.contact_id}
+                          onChange={(e) => updateContactId(index, e.target.value, true)}
+                          className="flex-1 px-3 py-1 rounded border text-sm"
+                          style={{
+                            backgroundColor: 'var(--color-bg-secondary)',
+                            borderColor: 'var(--color-border)',
+                          }}
+                        >
+                          {contacts.map(contact => (
+                            <option key={contact.id} value={contact.id}>
+                              {contact.first_name} {contact.last_name}
+                            </option>
+                          ))}
+                        </select>
+                        <select
+                          value={sc.role}
+                          onChange={(e) => updateContactRole(index, e.target.value, true)}
+                          className="px-3 py-1 rounded border text-sm"
+                          style={{
+                            backgroundColor: 'var(--color-bg-secondary)',
+                            borderColor: 'var(--color-border)',
+                          }}
+                        >
+                          <option value="assigned">Assigné</option>
+                          <option value="reviewer">Reviewer</option>
+                          <option value="observer">Observateur</option>
+                        </select>
+                        <button
+                          type="button"
+                          onClick={() => removeContact(index, true)}
+                          className="p-1 rounded text-sm"
+                          style={{
+                            backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                            color: 'var(--color-error)',
+                          }}
+                        >
+                          🗑️
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
               
               <div className="flex gap-2">
                 <button
@@ -516,6 +919,87 @@ export default function TachesPage() {
                   </select>
                 </div>
               </div>
+
+              {/* Contacts */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label 
+                    className="block text-sm font-medium"
+                    style={{ color: 'var(--color-text-secondary)' }}
+                  >
+                    👥 Contacts assignés
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => addContact(false)}
+                    className="text-sm px-3 py-1 rounded"
+                    style={{
+                      backgroundColor: 'var(--color-primary-light)',
+                      color: 'var(--color-primary)',
+                    }}
+                  >
+                    + Ajouter
+                  </button>
+                </div>
+
+                {selectedContacts.length === 0 ? (
+                  <p className="text-sm text-center py-4" style={{ color: 'var(--color-text-secondary)' }}>
+                    Aucun contact assigné
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {selectedContacts.map((sc, index) => (
+                      <div
+                        key={index}
+                        className="flex gap-2 items-center p-2 rounded-lg"
+                        style={{
+                          backgroundColor: 'var(--color-bg-secondary)',
+                        }}
+                      >
+                        <select
+                          value={sc.contact_id}
+                          onChange={(e) => updateContactId(index, e.target.value, false)}
+                          className="flex-1 px-3 py-1 rounded border text-sm"
+                          style={{
+                            backgroundColor: 'var(--color-bg-primary)',
+                            borderColor: 'var(--color-border)',
+                          }}
+                        >
+                          {contacts.map(contact => (
+                            <option key={contact.id} value={contact.id}>
+                              {contact.first_name} {contact.last_name}
+                            </option>
+                          ))}
+                        </select>
+                        <select
+                          value={sc.role}
+                          onChange={(e) => updateContactRole(index, e.target.value, false)}
+                          className="px-3 py-1 rounded border text-sm"
+                          style={{
+                            backgroundColor: 'var(--color-bg-primary)',
+                            borderColor: 'var(--color-border)',
+                          }}
+                        >
+                          <option value="assigned">Assigné</option>
+                          <option value="reviewer">Reviewer</option>
+                          <option value="observer">Observateur</option>
+                        </select>
+                        <button
+                          type="button"
+                          onClick={() => removeContact(index, false)}
+                          className="p-1 rounded text-sm"
+                          style={{
+                            backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                            color: 'var(--color-error)',
+                          }}
+                        >
+                          🗑️
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
               
               <button
                 onClick={createTask}
@@ -564,87 +1048,7 @@ export default function TachesPage() {
                   Aucune tâche
                 </p>
               ) : (
-                todoTasks.map(task => {
-                  const project = getProjectName(task.project_id)
-                  return (
-                    <div
-                      key={task.id}
-                      className="p-4 rounded-lg border hover:shadow-md transition-shadow"
-                      style={{
-                        backgroundColor: 'var(--color-bg-secondary)',
-                        borderColor: 'var(--color-border)'
-                      }}
-                    >
-                      <h3 
-                        className="font-semibold mb-2"
-                        style={{ color: 'var(--color-text-primary)' }}
-                      >
-                        {task.title}
-                      </h3>
-                      
-                      {task.description && (
-                        <p 
-                          className="text-sm mb-3"
-                          style={{ color: 'var(--color-text-secondary)' }}
-                        >
-                          {task.description}
-                        </p>
-                      )}
-                      
-                      {task.due_date && (
-                        <p 
-                          className="text-xs mb-2"
-                          style={{ color: 'var(--color-text-tertiary)' }}
-                        >
-                          📅 Échéance : {new Date(task.due_date).toLocaleDateString('fr-FR')}
-                        </p>
-                      )}
-
-                      <TaskTimer 
-                        task={task} 
-                        onUpdateTime={updateTaskTime}
-                        className="mb-2"
-                      />
-                      
-                      {project && (
-                        <Link
-                          href={`/projets/${project.id}`}
-                          className="inline-block mb-3"
-                        >
-                          <span
-                            className="text-xs px-2 py-1 rounded-full text-white"
-                            style={{ backgroundColor: project.color || '#8b5cf6' }}
-                          >
-                            📁 {project.name}
-                          </span>
-                        </Link>
-                      )}
-                      
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => startEdit(task)}
-                          className="text-white px-3 py-1 rounded text-sm"
-                          style={{ backgroundColor: 'var(--color-text-tertiary)' }}
-                        >
-                          ✏️
-                        </button>
-                        <button
-                          onClick={() => updateTaskStatus(task.id, 'in_progress')}
-                          className="btn-primary flex-1 text-sm"
-                        >
-                          ▶️ Commencer
-                        </button>
-                        <button
-                          onClick={() => deleteTask(task.id)}
-                          className="text-white px-3 py-1 rounded text-sm"
-                          style={{ backgroundColor: 'var(--color-error)' }}
-                        >
-                          🗑️
-                        </button>
-                      </div>
-                    </div>
-                  )
-                })
+                todoTasks.map(task => <TaskCard key={task.id} task={task} />)
               )}
             </div>
           </div>
@@ -684,95 +1088,7 @@ export default function TachesPage() {
                   Aucune tâche
                 </p>
               ) : (
-                inProgressTasks.map(task => {
-                  const project = getProjectName(task.project_id)
-                  return (
-                    <div
-                      key={task.id}
-                      className="p-4 rounded-lg border hover:shadow-md transition-shadow"
-                      style={{
-                        backgroundColor: 'var(--color-primary-light)',
-                        borderColor: 'var(--color-primary)'
-                      }}
-                    >
-                      <h3 
-                        className="font-semibold mb-2"
-                        style={{ color: 'var(--color-text-primary)' }}
-                      >
-                        {task.title}
-                      </h3>
-                      
-                      {task.description && (
-                        <p 
-                          className="text-sm mb-3"
-                          style={{ color: 'var(--color-text-secondary)' }}
-                        >
-                          {task.description}
-                        </p>
-                      )}
-                      
-                      {task.due_date && (
-                        <p 
-                          className="text-xs mb-2"
-                          style={{ color: 'var(--color-text-tertiary)' }}
-                        >
-                          📅 Échéance : {new Date(task.due_date).toLocaleDateString('fr-FR')}
-                        </p>
-                      )}
-
-                      <TaskTimer 
-                        task={task} 
-                        onUpdateTime={updateTaskTime}
-                        className="mb-2"
-                      />
-                      
-                      {project && (
-                        <Link
-                          href={`/projets/${project.id}`}
-                          className="inline-block mb-3"
-                        >
-                          <span
-                            className="text-xs px-2 py-1 rounded-full text-white"
-                            style={{ backgroundColor: project.color || '#8b5cf6' }}
-                          >
-                            📁 {project.name}
-                          </span>
-                        </Link>
-                      )}
-                      
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => startEdit(task)}
-                          className="text-white px-3 py-1 rounded text-sm"
-                          style={{ backgroundColor: 'var(--color-text-tertiary)' }}
-                        >
-                          ✏️
-                        </button>
-                        <button
-                          onClick={() => updateTaskStatus(task.id, 'todo')}
-                          className="text-white px-3 py-1 rounded text-sm"
-                          style={{ backgroundColor: 'var(--color-text-tertiary)' }}
-                        >
-                          ⬅️
-                        </button>
-                        <button
-                          onClick={() => updateTaskStatus(task.id, 'done')}
-                          className="flex-1 text-white px-3 py-1 rounded text-sm"
-                          style={{ backgroundColor: 'var(--color-success)' }}
-                        >
-                          ✅ Terminer
-                        </button>
-                        <button
-                          onClick={() => deleteTask(task.id)}
-                          className="text-white px-3 py-1 rounded text-sm"
-                          style={{ backgroundColor: 'var(--color-error)' }}
-                        >
-                          🗑️
-                        </button>
-                      </div>
-                    </div>
-                  )
-                })
+                inProgressTasks.map(task => <TaskCard key={task.id} task={task} />)
               )}
             </div>
           </div>
@@ -812,80 +1128,7 @@ export default function TachesPage() {
                   Aucune tâche
                 </p>
               ) : (
-                doneTasks.map(task => {
-                  const project = getProjectName(task.project_id)
-                  return (
-                    <div
-                      key={task.id}
-                      className="p-4 rounded-lg border hover:shadow-md transition-shadow opacity-75"
-                      style={{
-                        backgroundColor: 'var(--color-success)20',
-                        borderColor: 'var(--color-success)40'
-                      }}
-                    >
-                      <h3 
-                        className="font-semibold mb-2 line-through"
-                        style={{ color: 'var(--color-text-primary)' }}
-                      >
-                        {task.title}
-                      </h3>
-                      
-                      {task.description && (
-                        <p 
-                          className="text-sm mb-3"
-                          style={{ color: 'var(--color-text-secondary)' }}
-                        >
-                          {task.description}
-                        </p>
-                      )}
-                      
-                      {task.due_date && (
-                        <p 
-                          className="text-xs mb-2"
-                          style={{ color: 'var(--color-text-tertiary)' }}
-                        >
-                          📅 Échéance : {new Date(task.due_date).toLocaleDateString('fr-FR')}
-                        </p>
-                      )}
-
-                      <TaskTimer 
-                        task={task} 
-                        onUpdateTime={updateTaskTime}
-                        className="mb-2"
-                      />
-                      
-                      {project && (
-                        <Link
-                          href={`/projets/${project.id}`}
-                          className="inline-block mb-3"
-                        >
-                          <span
-                            className="text-xs px-2 py-1 rounded-full text-white"
-                            style={{ backgroundColor: project.color || '#8b5cf6' }}
-                          >
-                            📁 {project.name}
-                          </span>
-                        </Link>
-                      )}
-                      
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => updateTaskStatus(task.id, 'in_progress')}
-                          className="btn-primary flex-1 text-sm"
-                        >
-                          ↩️ Reprendre
-                        </button>
-                        <button
-                          onClick={() => deleteTask(task.id)}
-                          className="text-white px-3 py-1 rounded text-sm"
-                          style={{ backgroundColor: 'var(--color-error)' }}
-                        >
-                          🗑️
-                        </button>
-                      </div>
-                    </div>
-                  )
-                })
+                doneTasks.map(task => <TaskCard key={task.id} task={task} />)
               )}
             </div>
           </div>

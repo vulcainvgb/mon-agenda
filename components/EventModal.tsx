@@ -2,7 +2,13 @@
 
 import { Event, Project } from '../lib/types';
 import ProjectTimeDisplay from './ProjectTimeDisplay';
-import { GOOGLE_CALENDAR_COLORS } from '../lib/google-colors';
+
+interface Contact {
+  id: string;
+  first_name: string;
+  last_name: string;
+  email?: string;
+}
 
 interface EventModalProps {
   isOpen: boolean;
@@ -18,6 +24,9 @@ interface EventModalProps {
   };
   setFormData: React.Dispatch<React.SetStateAction<any>>;
   projects: Project[];
+  contacts: Contact[];
+  selectedContacts: Array<{ contact_id: string; role: string; rsvp_status: string }>;
+  setSelectedContacts: React.Dispatch<React.SetStateAction<Array<{ contact_id: string; role: string; rsvp_status: string }>>>;
   onSave: () => void;
   onDelete: () => void;
 }
@@ -37,6 +46,24 @@ const GOOGLE_COLORS = [
   { hex: '#d50000', name: 'Tomate' }
 ];
 
+const roleLabels = {
+  participant: 'Participant',
+  organizer: 'Organisateur',
+  speaker: 'Speaker',
+};
+
+const roleColors = {
+  participant: '#3b82f6',
+  organizer: '#f59e0b',
+  speaker: '#8b5cf6',
+};
+
+const rsvpLabels = {
+  pending: 'En attente',
+  accepted: 'Accepté',
+  declined: 'Refusé',
+};
+
 export default function EventModal({
   isOpen,
   onClose,
@@ -44,6 +71,9 @@ export default function EventModal({
   formData,
   setFormData,
   projects,
+  contacts,
+  selectedContacts,
+  setSelectedContacts,
   onSave,
   onDelete
 }: EventModalProps) {
@@ -102,6 +132,41 @@ export default function EventModal({
 
   // Trouver le nom de la couleur sélectionnée
   const selectedColorName = GOOGLE_COLORS.find(c => c.hex === formData.color)?.name || 'Personnalisée';
+
+  // Gestion des contacts
+  const addContact = () => {
+    if (contacts.length === 0) {
+      alert('Aucun contact disponible. Créez d\'abord des contacts.');
+      return;
+    }
+    setSelectedContacts([...selectedContacts, { 
+      contact_id: contacts[0].id, 
+      role: 'participant',
+      rsvp_status: 'pending'
+    }]);
+  };
+
+  const removeContact = (index: number) => {
+    setSelectedContacts(selectedContacts.filter((_, i) => i !== index));
+  };
+
+  const updateContactRole = (index: number, role: string) => {
+    const updated = [...selectedContacts];
+    updated[index].role = role;
+    setSelectedContacts(updated);
+  };
+
+  const updateContactId = (index: number, contactId: string) => {
+    const updated = [...selectedContacts];
+    updated[index].contact_id = contactId;
+    setSelectedContacts(updated);
+  };
+
+  const updateContactRsvp = (index: number, rsvp: string) => {
+    const updated = [...selectedContacts];
+    updated[index].rsvp_status = rsvp;
+    setSelectedContacts(updated);
+  };
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -247,6 +312,89 @@ export default function EventModal({
                       )}
                     </div>
                   )}
+                </div>
+              )}
+            </div>
+
+            {/* Participants/Contacts */}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <label className="block text-sm font-medium text-theme-secondary">
+                  👥 Participants
+                </label>
+                <button
+                  type="button"
+                  onClick={addContact}
+                  className="text-sm px-3 py-1 rounded transition-all"
+                  style={{
+                    backgroundColor: 'var(--color-primary-light)',
+                    color: 'var(--color-primary)',
+                  }}
+                >
+                  + Ajouter
+                </button>
+              </div>
+
+              {selectedContacts.length === 0 ? (
+                <p className="text-sm text-center py-4 text-theme-tertiary">
+                  Aucun participant
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {selectedContacts.map((sc, index) => (
+                    <div
+                      key={index}
+                      className="flex gap-2 items-center p-2 rounded-lg bg-theme-secondary"
+                    >
+                      {/* Sélection du contact */}
+                      <select
+                        value={sc.contact_id}
+                        onChange={(e) => updateContactId(index, e.target.value)}
+                        className="flex-1 px-3 py-1 rounded border text-sm bg-theme-primary text-theme-primary border-theme"
+                      >
+                        {contacts.map(contact => (
+                          <option key={contact.id} value={contact.id}>
+                            {contact.first_name} {contact.last_name}
+                          </option>
+                        ))}
+                      </select>
+                      
+                      {/* Rôle */}
+                      <select
+                        value={sc.role}
+                        onChange={(e) => updateContactRole(index, e.target.value)}
+                        className="px-3 py-1 rounded border text-sm bg-theme-primary text-theme-primary border-theme"
+                      >
+                        <option value="participant">👤 Participant</option>
+                        <option value="organizer">🎯 Organisateur</option>
+                        <option value="speaker">🎤 Speaker</option>
+                      </select>
+
+                      {/* RSVP */}
+                      <select
+                        value={sc.rsvp_status}
+                        onChange={(e) => updateContactRsvp(index, e.target.value)}
+                        className="px-3 py-1 rounded border text-sm bg-theme-primary text-theme-primary border-theme"
+                      >
+                        <option value="pending">⏳ En attente</option>
+                        <option value="accepted">✅ Accepté</option>
+                        <option value="declined">❌ Refusé</option>
+                      </select>
+
+                      {/* Bouton supprimer */}
+                      <button
+                        type="button"
+                        onClick={() => removeContact(index)}
+                        className="p-1 rounded text-sm transition-all"
+                        style={{
+                          backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                          color: 'var(--color-error)',
+                        }}
+                      >
+                        🗑️
+                      </button>
+                    </div>
+                  ))}
                 </div>
               )}
             </div>

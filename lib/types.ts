@@ -25,6 +25,25 @@ export interface Task {
   started_at?: string | null; 
 }
 
+// Notes pour les contacts
+export interface ContactNote {
+  id: string
+  contact_id: string
+  user_id: string
+  note: string
+  rating?: number  // 0 à 10
+  created_at: string
+}
+
+// Notes pour les groupes
+export interface GroupNote {
+  id: string
+  group_id: string
+  user_id: string
+  note: string
+  rating?: number  // 0 à 10
+  created_at: string
+}
 export interface Project {
   id: string;
   user_id: string;
@@ -144,6 +163,40 @@ export interface GoogleAuth {
   sync_enabled: boolean;
   created_at: string;
   updated_at: string;
+}
+
+// Groupes de contacts
+export interface ContactGroup {
+  id: string
+  user_id: string
+  name: string
+  description?: string
+  color: string
+  type: 'general' | 'family' | 'company' | 'friends' | 'professional'
+  created_at?: string
+  updated_at?: string
+}
+
+export interface ContactGroupMember {
+  id: string
+  group_id: string
+  contact_id: string
+  contact?: Contact
+  role: 'member' | 'manager' | 'owner'
+  joined_at?: string
+  created_at?: string
+}
+
+// Ajouter aussi aux contacts pour faciliter les requêtes
+export interface ContactWithGroups extends Contact {
+  groups?: ContactGroup[]
+}
+export interface EventWithContacts extends Event {
+  contacts?: EventContact[]
+}
+
+export interface TaskWithContacts extends Task {
+  contacts?: TaskContact[]
 }
 
 // Google Calendar Event (format de l'API)

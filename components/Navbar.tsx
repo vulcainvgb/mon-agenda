@@ -19,10 +19,18 @@ export default function Navbar() {
     { href: '/calendrier', label: 'Calendrier', icon: '📅' },
     { href: '/taches', label: 'Tâches', icon: '✅' },
     { href: '/projets', label: 'Projets', icon: '📁' },
+    { href: '/contacts', label: 'Contacts', icon: '👥' },
+    { href: '/groupes', label: 'Groupes', icon: '🏢' },
   ];
 
   const isActive = (href: string) => {
     if (href === '/projets' && pathname.startsWith('/projets')) {
+      return true;
+    }
+    if (href === '/contacts' && pathname.startsWith('/contacts')) {
+      return true;
+    }
+    if (href === '/groupes' && pathname.startsWith('/groupes')) {
       return true;
     }
     return pathname === href;
