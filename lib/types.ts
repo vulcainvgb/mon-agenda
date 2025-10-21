@@ -187,6 +187,33 @@ export interface ContactGroupMember {
   created_at?: string
 }
 
+// Liaisons groupes-projets
+export interface ProjectContactGroup {
+  id: string
+  project_id: string
+  group_id: string
+  group?: ContactGroup
+  created_at?: string
+}
+
+// Liaisons groupes-tâches
+export interface TaskContactGroup {
+  id: string
+  task_id: string
+  group_id: string
+  group?: ContactGroup
+  created_at?: string
+}
+
+// Liaisons groupes-événements
+export interface EventContactGroup {
+  id: string
+  event_id: string
+  group_id: string
+  group?: ContactGroup
+  created_at?: string
+}
+
 // Ajouter aussi aux contacts pour faciliter les requêtes
 export interface ContactWithGroups extends Contact {
   groups?: ContactGroup[]

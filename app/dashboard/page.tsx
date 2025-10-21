@@ -3,36 +3,62 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '../../lib/supabase';
-import { DashboardStats, UpcomingItem, ProjectAlert, ChartData, Task, Event, Project } from '../../lib/types';
-import StatCard from '../../components/StatCard';
-import UpcomingTimeline from '../../components/UpcomingTimeline';
-import ProjectAlerts from '../../components/ProjectAlerts';
-import TasksChart from '../../components/TasksChart';
+import Link from 'next/link';
+
+interface DashboardStats {
+  tasks: {
+    total: number;
+    todo: number;
+    in_progress: number;
+    done: number;
+    overdue: number;
+  };
+  events: {
+    total: number;
+    today: number;
+    thisWeek: number;
+  };
+  projects: {
+    total: number;
+    active: number;
+    completed: number;
+    withTeam: number;
+  };
+  contacts: {
+    total: number;
+    groups: number;
+    recentlyAdded: number;
+  };
+}
+
+interface RecentProject {
+  id: string;
+  name: string;
+  color?: string;
+  status: string;
+  member_count: number;
+  group_count: number;
+}
+
+interface UpcomingItem {
+  id: string;
+  title: string;
+  date: string;
+  type: 'event' | 'task';
+  priority?: string;
+}
 
 export default function DashboardPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState<DashboardStats>({
-    tasks: { total: 0, todo: 0, in_progress: 0, done: 0, overdue: 0, high_priority: 0 },
-    events: { total: 0, today: 0, thisWeek: 0, upcoming: 0 },
-    projects: { total: 0, active: 0, completed: 0, overBudget: 0, delayed: 0 }
+    tasks: { total: 0, todo: 0, in_progress: 0, done: 0, overdue: 0 },
+    events: { total: 0, today: 0, thisWeek: 0 },
+    projects: { total: 0, active: 0, completed: 0, withTeam: 0 },
+    contacts: { total: 0, groups: 0, recentlyAdded: 0 }
   });
+  const [recentProjects, setRecentProjects] = useState<RecentProject[]>([]);
   const [upcomingItems, setUpcomingItems] = useState<UpcomingItem[]>([]);
-  const [alerts, setAlerts] = useState<ProjectAlert[]>([]);
-  const [chartData, setChartData] = useState<ChartData[]>([]);
-
-  // Fonctions helper pour les dates
-  const parseDate = (dateStr: string) => new Date(dateStr);
-  
-  const isAfter = (date1: Date, date2: Date) => date1.getTime() > date2.getTime();
-  
-  const isBefore = (date1: Date, date2: Date) => date1.getTime() < date2.getTime();
-  
-  const addDays = (date: Date, days: number) => {
-    const result = new Date(date);
-    result.setDate(result.getDate() + days);
-    return result;
-  };
 
   useEffect(() => {
     checkUser();
@@ -54,29 +80,36 @@ export default function DashboardPage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      const [tasksRes, eventsRes, projectsRes] = await Promise.all([
-        supabase
-          .from('tasks')
-          .select('*, project:projects(*)')
-          .eq('user_id', user.id),
-        supabase
-          .from('events')
-          .select('*, project:projects(*)')
-          .eq('user_id', user.id),
-        supabase
-          .from('projects')
-          .select('*')
-          .eq('user_id', user.id)
+      // Charger toutes les données en parallèle
+      const [
+        tasksRes,
+        eventsRes,
+        projectsRes,
+        contactsRes,
+        groupsRes,
+        projectContactsRes,
+        projectGroupsRes
+      ] = await Promise.all([
+        supabase.from('tasks').select('*').eq('user_id', user.id),
+        supabase.from('events').select('*').eq('user_id', user.id),
+        supabase.from('projects').select('*').eq('user_id', user.id),
+        supabase.from('contacts').select('*').eq('user_id', user.id),
+        supabase.from('contact_groups').select('*').eq('user_id', user.id),
+        supabase.from('project_contacts').select('project_id'),
+        supabase.from('project_contact_groups').select('project_id')
       ]);
 
       const tasks = tasksRes.data || [];
       const events = eventsRes.data || [];
       const projects = projectsRes.data || [];
+      const contacts = contactsRes.data || [];
+      const groups = groupsRes.data || [];
+      const projectContacts = projectContactsRes.data || [];
+      const projectGroups = projectGroupsRes.data || [];
 
-      calculateStats(tasks, events, projects);
-      generateUpcomingTimeline(tasks, events);
-      generateProjectAlerts(projects, tasks);
-      generateChartData(tasks);
+      calculateStats(tasks, events, projects, contacts, groups, projectContacts);
+      loadRecentProjects(projects, projectContacts, projectGroups);
+      loadUpcomingItems(tasks, events);
 
       setLoading(false);
     } catch (error) {
@@ -85,10 +118,28 @@ export default function DashboardPage() {
     }
   };
 
-  const calculateStats = (tasks: Task[], events: Event[], projects: Project[]) => {
+  const calculateStats = (
+    tasks: any[],
+    events: any[],
+    projects: any[],
+    contacts: any[],
+    groups: any[],
+    projectContacts: any[]
+  ) => {
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const nextWeek = addDays(today, 7);
+    const nextWeek = new Date(today);
+    nextWeek.setDate(nextWeek.getDate() + 7);
+
+    // Contacts ajoutés dans les 7 derniers jours
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    const recentContacts = contacts.filter(c => 
+      new Date(c.created_at) >= sevenDaysAgo
+    ).length;
+
+    // Projets avec équipe
+    const projectsWithTeam = new Set(projectContacts.map(pc => pc.project_id)).size;
 
     const newStats: DashboardStats = {
       tasks: {
@@ -99,178 +150,95 @@ export default function DashboardPage() {
         overdue: tasks.filter(t => 
           t.due_date && 
           t.status !== 'done' && 
-          isBefore(parseDate(t.due_date), now)
-        ).length,
-        high_priority: tasks.filter(t => t.priority === 'high' && t.status !== 'done').length
+          new Date(t.due_date) < now
+        ).length
       },
       events: {
         total: events.length,
         today: events.filter(e => {
-          const eventDate = parseDate(e.start_time);
-          return eventDate >= today && eventDate < addDays(today, 1);
+          const eventDate = new Date(e.start_time);
+          return eventDate >= today && eventDate < new Date(today.getTime() + 86400000);
         }).length,
         thisWeek: events.filter(e => {
-          const eventDate = parseDate(e.start_time);
+          const eventDate = new Date(e.start_time);
           return eventDate >= today && eventDate < nextWeek;
-        }).length,
-        upcoming: events.filter(e => isAfter(parseDate(e.start_time), now)).length
+        }).length
       },
       projects: {
         total: projects.length,
         active: projects.filter(p => p.status === 'active').length,
         completed: projects.filter(p => p.status === 'completed').length,
-        overBudget: projects.filter(p => 
-          p.budget_total && 
-          p.budget_spent && 
-          p.budget_spent > p.budget_total
-        ).length,
-        delayed: projects.filter(p => 
-          p.end_date && 
-          p.status === 'active' && 
-          isBefore(parseDate(p.end_date), now)
-        ).length
+        withTeam: projectsWithTeam
+      },
+      contacts: {
+        total: contacts.length,
+        groups: groups.length,
+        recentlyAdded: recentContacts
       }
     };
 
     setStats(newStats);
   };
 
-  const generateUpcomingTimeline = (tasks: Task[], events: Event[]) => {
-    const now = new Date();
-    const nextWeek = addDays(now, 7);
+  const loadRecentProjects = async (
+    projects: any[],
+    projectContacts: any[],
+    projectGroups: any[]
+  ) => {
+    const activeProjects = projects
+      .filter(p => p.status === 'active')
+      .sort((a, b) => new Date(b.updated_at || b.created_at).getTime() - new Date(a.updated_at || a.created_at).getTime())
+      .slice(0, 4);
 
-    const upcomingEvents: UpcomingItem[] = events
+    const projectsWithCounts = activeProjects.map(p => ({
+      id: p.id,
+      name: p.name,
+      color: p.color,
+      status: p.status,
+      member_count: projectContacts.filter(pc => pc.project_id === p.id).length,
+      group_count: projectGroups.filter(pg => pg.project_id === p.id).length
+    }));
+
+    setRecentProjects(projectsWithCounts);
+  };
+
+  const loadUpcomingItems = (tasks: any[], events: any[]) => {
+    const now = new Date();
+    const nextWeek = new Date();
+    nextWeek.setDate(nextWeek.getDate() + 7);
+
+    const upcomingEvents = events
       .filter(e => {
-        const eventDate = parseDate(e.start_time);
+        const eventDate = new Date(e.start_time);
         return eventDate >= now && eventDate <= nextWeek;
       })
       .map(e => ({
         id: e.id,
-        type: 'event' as const,
         title: e.title,
         date: e.start_time,
-        project: e.project ? {
-          id: e.project.id,
-          name: e.project.name,
-          color: e.project.color
-        } : undefined
+        type: 'event' as const
       }));
 
-    const upcomingTasks: UpcomingItem[] = tasks
+    const upcomingTasks = tasks
       .filter(t => 
         t.due_date && 
         t.status !== 'done' && 
-        parseDate(t.due_date) >= now && 
-        parseDate(t.due_date) <= nextWeek
+        new Date(t.due_date) >= now && 
+        new Date(t.due_date) <= nextWeek
       )
       .map(t => ({
         id: t.id,
-        type: 'task' as const,
         title: t.title,
-        date: t.due_date!,
-        priority: t.priority,
-        status: t.status,
-        project: t.project ? {
-          id: t.project.id,
-          name: t.project.name,
-          color: t.project.color
-        } : undefined
+        date: t.due_date,
+        type: 'task' as const,
+        priority: t.priority
       }));
 
     const allItems = [...upcomingEvents, ...upcomingTasks]
-      .sort((a, b) => parseDate(a.date).getTime() - parseDate(b.date).getTime())
-      .slice(0, 8);
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+      .slice(0, 6);
 
     setUpcomingItems(allItems);
-  };
-
-  const generateChartData = (tasks: Task[]) => {
-    const data: ChartData[] = [
-      {
-        name: 'À faire',
-        value: tasks.filter(t => t.status === 'todo').length,
-        color: '#6366f1'
-      },
-      {
-        name: 'En cours',
-        value: tasks.filter(t => t.status === 'in_progress').length,
-        color: '#f59e0b'
-      },
-      {
-        name: 'Terminées',
-        value: tasks.filter(t => t.status === 'done').length,
-        color: '#10b981'
-      }
-    ];
-    setChartData(data);
-  };
-
-  const generateProjectAlerts = (projects: Project[], tasks: Task[]) => {
-    const now = new Date();
-    const newAlerts: ProjectAlert[] = [];
-
-    projects.forEach(project => {
-      if (project.budget_total && project.budget_spent && project.budget_spent > project.budget_total) {
-        const overrun = project.budget_spent - project.budget_total;
-        newAlerts.push({
-          id: `budget-${project.id}`,
-          project_id: project.id,
-          project_name: project.name,
-          type: 'budget',
-          severity: 'danger',
-          message: `Budget dépassé de ${overrun.toFixed(0)}€`,
-          color: project.color
-        });
-      }
-
-      if (project.budget_total && project.budget_spent && 
-          project.budget_spent > project.budget_total * 0.9 &&
-          project.budget_spent <= project.budget_total) {
-        const remaining = project.budget_total - project.budget_spent;
-        newAlerts.push({
-          id: `budget-warning-${project.id}`,
-          project_id: project.id,
-          project_name: project.name,
-          type: 'budget',
-          severity: 'warning',
-          message: `Plus que ${remaining.toFixed(0)}€ disponibles (${((remaining / project.budget_total) * 100).toFixed(0)}% restant)`,
-          color: project.color
-        });
-      }
-
-      if (project.end_date && project.status === 'active' && isBefore(parseDate(project.end_date), now)) {
-        newAlerts.push({
-          id: `deadline-${project.id}`,
-          project_id: project.id,
-          project_name: project.name,
-          type: 'deadline',
-          severity: 'danger',
-          message: 'Date limite dépassée',
-          color: project.color
-        });
-      }
-
-      const overdueTasks = tasks.filter(t => 
-        t.project_id === project.id && 
-        t.status !== 'done' && 
-        t.due_date && 
-        isBefore(parseDate(t.due_date), now)
-      ).length;
-
-      if (overdueTasks > 0) {
-        newAlerts.push({
-          id: `overdue-${project.id}`,
-          project_id: project.id,
-          project_name: project.name,
-          type: 'overdue_tasks',
-          severity: 'warning',
-          message: `${overdueTasks} tâche${overdueTasks > 1 ? 's' : ''} en retard`,
-          color: project.color
-        });
-      }
-    });
-
-    setAlerts(newAlerts);
   };
 
   if (loading) {
@@ -285,7 +253,7 @@ export default function DashboardPage() {
             style={{ borderColor: 'var(--color-primary)' }}
           />
           <p style={{ color: 'var(--color-text-secondary)' }}>
-            Chargement du dashboard...
+            Chargement...
           </p>
         </div>
       </div>
@@ -304,82 +272,326 @@ export default function DashboardPage() {
             className="text-3xl font-bold"
             style={{ color: 'var(--color-text-primary)' }}
           >
-            Tableau de bord
+            📊 Tableau de bord
           </h1>
           <p 
             className="mt-2"
             style={{ color: 'var(--color-text-secondary)' }}
           >
-            Vue d'ensemble de vos projets, tâches et événements
+            Vue d'ensemble de votre activité
           </p>
         </div>
 
-        {/* Statistiques principales */}
+        {/* Statistiques principales - 2 rangées */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <StatCard
-            title="Tâches actives"
-            value={stats.tasks.total - stats.tasks.done}
-            icon={
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-              </svg>
-            }
-            color="blue"
-            subtitle={`${stats.tasks.high_priority} urgent${stats.tasks.high_priority > 1 ? 's' : ''}`}
+          {/* Tâches */}
+          <Link
             href="/taches"
-          />
+            className="p-6 rounded-xl shadow-sm border hover:shadow-md transition-all"
+            style={{
+              backgroundColor: 'var(--color-bg-primary)',
+              borderColor: 'var(--color-border)'
+            }}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <div 
+                className="w-12 h-12 rounded-lg flex items-center justify-center"
+                style={{ backgroundColor: 'var(--color-primary-light)' }}
+              >
+                <svg 
+                  className="w-6 h-6" 
+                  fill="none" 
+                  stroke="currentColor" 
+                  viewBox="0 0 24 24"
+                  style={{ color: 'var(--color-primary)' }}
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                </svg>
+              </div>
+              {stats.tasks.overdue > 0 && (
+                <div 
+                  className="px-2 py-1 rounded-full text-xs font-semibold"
+                  style={{ 
+                    backgroundColor: 'var(--color-error)20',
+                    color: 'var(--color-error)'
+                  }}
+                >
+                  {stats.tasks.overdue} en retard
+                </div>
+              )}
+            </div>
+            <div>
+              <p 
+                className="text-sm font-medium mb-1"
+                style={{ color: 'var(--color-text-secondary)' }}
+              >
+                Tâches actives
+              </p>
+              <p 
+                className="text-3xl font-bold"
+                style={{ color: 'var(--color-text-primary)' }}
+              >
+                {stats.tasks.total - stats.tasks.done}
+              </p>
+              <p 
+                className="text-sm mt-2"
+                style={{ color: 'var(--color-text-tertiary)' }}
+              >
+                {stats.tasks.in_progress} en cours
+              </p>
+            </div>
+          </Link>
 
-          <StatCard
-            title="Tâches en retard"
-            value={stats.tasks.overdue}
-            icon={
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            }
-            color={stats.tasks.overdue > 0 ? "red" : "green"}
-            subtitle={stats.tasks.overdue > 0 ? "Action requise" : "Tout est à jour"}
-            href="/taches"
-          />
-
-          <StatCard
-            title="Événements cette semaine"
-            value={stats.events.thisWeek}
-            icon={
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-              </svg>
-            }
-            color="purple"
-            subtitle={`${stats.events.today} aujourd'hui`}
+          {/* Événements */}
+          <Link
             href="/calendrier"
-          />
+            className="p-6 rounded-xl shadow-sm border hover:shadow-md transition-all"
+            style={{
+              backgroundColor: 'var(--color-bg-primary)',
+              borderColor: 'var(--color-border)'
+            }}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <div 
+                className="w-12 h-12 rounded-lg flex items-center justify-center"
+                style={{ backgroundColor: 'var(--color-secondary-light)' }}
+              >
+                <svg 
+                  className="w-6 h-6" 
+                  fill="none" 
+                  stroke="currentColor" 
+                  viewBox="0 0 24 24"
+                  style={{ color: 'var(--color-secondary)' }}
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+              </div>
+              {stats.events.today > 0 && (
+                <div 
+                  className="px-2 py-1 rounded-full text-xs font-semibold"
+                  style={{ 
+                    backgroundColor: 'var(--color-secondary)20',
+                    color: 'var(--color-secondary)'
+                  }}
+                >
+                  {stats.events.today} aujourd'hui
+                </div>
+              )}
+            </div>
+            <div>
+              <p 
+                className="text-sm font-medium mb-1"
+                style={{ color: 'var(--color-text-secondary)' }}
+              >
+                Événements
+              </p>
+              <p 
+                className="text-3xl font-bold"
+                style={{ color: 'var(--color-text-primary)' }}
+              >
+                {stats.events.thisWeek}
+              </p>
+              <p 
+                className="text-sm mt-2"
+                style={{ color: 'var(--color-text-tertiary)' }}
+              >
+                cette semaine
+              </p>
+            </div>
+          </Link>
 
-          <StatCard
-            title="Projets actifs"
-            value={stats.projects.active}
-            icon={
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
-              </svg>
-            }
-            color="orange"
-            subtitle={`${stats.projects.total} au total`}
+          {/* Projets */}
+          <Link
             href="/projets"
-          />
+            className="p-6 rounded-xl shadow-sm border hover:shadow-md transition-all"
+            style={{
+              backgroundColor: 'var(--color-bg-primary)',
+              borderColor: 'var(--color-border)'
+            }}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <div 
+                className="w-12 h-12 rounded-lg flex items-center justify-center"
+                style={{ backgroundColor: 'var(--color-warning)20' }}
+              >
+                <svg 
+                  className="w-6 h-6" 
+                  fill="none" 
+                  stroke="currentColor" 
+                  viewBox="0 0 24 24"
+                  style={{ color: 'var(--color-warning)' }}
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+                </svg>
+              </div>
+              {stats.projects.withTeam > 0 && (
+                <div 
+                  className="px-2 py-1 rounded-full text-xs font-semibold"
+                  style={{ 
+                    backgroundColor: 'var(--color-warning)20',
+                    color: 'var(--color-warning)'
+                  }}
+                >
+                  {stats.projects.withTeam} avec équipe
+                </div>
+              )}
+            </div>
+            <div>
+              <p 
+                className="text-sm font-medium mb-1"
+                style={{ color: 'var(--color-text-secondary)' }}
+              >
+                Projets actifs
+              </p>
+              <p 
+                className="text-3xl font-bold"
+                style={{ color: 'var(--color-text-primary)' }}
+              >
+                {stats.projects.active}
+              </p>
+              <p 
+                className="text-sm mt-2"
+                style={{ color: 'var(--color-text-tertiary)' }}
+              >
+                sur {stats.projects.total} total
+              </p>
+            </div>
+          </Link>
+
+          {/* Contacts */}
+          <Link
+            href="/contacts"
+            className="p-6 rounded-xl shadow-sm border hover:shadow-md transition-all"
+            style={{
+              backgroundColor: 'var(--color-bg-primary)',
+              borderColor: 'var(--color-border)'
+            }}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <div 
+                className="w-12 h-12 rounded-lg flex items-center justify-center"
+                style={{ backgroundColor: 'var(--color-success)20' }}
+              >
+                <svg 
+                  className="w-6 h-6" 
+                  fill="none" 
+                  stroke="currentColor" 
+                  viewBox="0 0 24 24"
+                  style={{ color: 'var(--color-success)' }}
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                </svg>
+              </div>
+              {stats.contacts.recentlyAdded > 0 && (
+                <div 
+                  className="px-2 py-1 rounded-full text-xs font-semibold"
+                  style={{ 
+                    backgroundColor: 'var(--color-success)20',
+                    color: 'var(--color-success)'
+                  }}
+                >
+                  +{stats.contacts.recentlyAdded} cette semaine
+                </div>
+              )}
+            </div>
+            <div>
+              <p 
+                className="text-sm font-medium mb-1"
+                style={{ color: 'var(--color-text-secondary)' }}
+              >
+                Contacts
+              </p>
+              <p 
+                className="text-3xl font-bold"
+                style={{ color: 'var(--color-text-primary)' }}
+              >
+                {stats.contacts.total}
+              </p>
+              <p 
+                className="text-sm mt-2"
+                style={{ color: 'var(--color-text-tertiary)' }}
+              >
+                {stats.contacts.groups} groupes
+              </p>
+            </div>
+          </Link>
         </div>
 
-        {/* Alertes et Timeline */}
+        {/* Projets récents et À venir */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-          <ProjectAlerts alerts={alerts} />
-          <UpcomingTimeline items={upcomingItems} />
-        </div>
+          {/* Projets actifs récents */}
+          <div 
+            className="rounded-xl shadow-sm border p-6"
+            style={{
+              backgroundColor: 'var(--color-bg-primary)',
+              borderColor: 'var(--color-border)'
+            }}
+          >
+            <div className="flex justify-between items-center mb-6">
+              <h3 
+                className="text-lg font-semibold"
+                style={{ color: 'var(--color-text-primary)' }}
+              >
+                📁 Projets actifs
+              </h3>
+              <Link 
+                href="/projets"
+                className="text-sm hover:opacity-80"
+                style={{ color: 'var(--color-primary)' }}
+              >
+                Voir tout →
+              </Link>
+            </div>
 
-        {/* Graphiques */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-          <TasksChart data={chartData} />
-          
-          {/* Statistiques détaillées des tâches */}
+            {recentProjects.length === 0 ? (
+              <p 
+                className="text-center py-8"
+                style={{ color: 'var(--color-text-tertiary)' }}
+              >
+                Aucun projet actif
+              </p>
+            ) : (
+              <div className="space-y-3">
+                {recentProjects.map((project) => (
+                  <Link
+                    key={project.id}
+                    href={`/projets/${project.id}`}
+                    className="flex items-center gap-4 p-3 rounded-lg hover:opacity-80 transition-all border"
+                    style={{
+                      backgroundColor: 'var(--color-bg-secondary)',
+                      borderColor: 'var(--color-border)'
+                    }}
+                  >
+                    <div
+                      className="w-10 h-10 rounded-lg flex items-center justify-center font-bold text-white"
+                      style={{ backgroundColor: project.color || 'var(--color-primary)' }}
+                    >
+                      {project.name.charAt(0).toUpperCase()}
+                    </div>
+                    <div className="flex-1">
+                      <p 
+                        className="font-semibold"
+                        style={{ color: 'var(--color-text-primary)' }}
+                      >
+                        {project.name}
+                      </p>
+                      <p 
+                        className="text-sm"
+                        style={{ color: 'var(--color-text-secondary)' }}
+                      >
+                        {project.member_count > 0 && `👥 ${project.member_count} membre${project.member_count > 1 ? 's' : ''}`}
+                        {project.member_count > 0 && project.group_count > 0 && ' • '}
+                        {project.group_count > 0 && `🏢 ${project.group_count} groupe${project.group_count > 1 ? 's' : ''}`}
+                        {project.member_count === 0 && project.group_count === 0 && 'Aucune équipe'}
+                      </p>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* À venir */}
           <div 
             className="rounded-xl shadow-sm border p-6"
             style={{
@@ -391,119 +603,92 @@ export default function DashboardPage() {
               className="text-lg font-semibold mb-6"
               style={{ color: 'var(--color-text-primary)' }}
             >
-              Détails des tâches
+              📅 À venir cette semaine
             </h3>
-            <div className="space-y-4">
-              <div 
-                className="flex items-center justify-between p-4 rounded-lg"
-                style={{ backgroundColor: 'var(--color-primary-light)' }}
-              >
-                <div className="flex items-center gap-3">
-                  <div 
-                    className="w-3 h-3 rounded-full"
-                    style={{ backgroundColor: 'var(--color-primary)' }}
-                  />
-                  <span 
-                    className="font-medium"
-                    style={{ color: 'var(--color-text-secondary)' }}
-                  >
-                    À faire
-                  </span>
-                </div>
-                <span 
-                  className="text-2xl font-bold"
-                  style={{ color: 'var(--color-primary)' }}
-                >
-                  {stats.tasks.todo}
-                </span>
-              </div>
-              
-              <div 
-                className="flex items-center justify-between p-4 rounded-lg"
-                style={{ backgroundColor: 'var(--color-warning)20' }}
-              >
-                <div className="flex items-center gap-3">
-                  <div 
-                    className="w-3 h-3 rounded-full"
-                    style={{ backgroundColor: 'var(--color-warning)' }}
-                  />
-                  <span 
-                    className="font-medium"
-                    style={{ color: 'var(--color-text-secondary)' }}
-                  >
-                    En cours
-                  </span>
-                </div>
-                <span 
-                  className="text-2xl font-bold"
-                  style={{ color: 'var(--color-warning)' }}
-                >
-                  {stats.tasks.in_progress}
-                </span>
-              </div>
-              
-              <div 
-                className="flex items-center justify-between p-4 rounded-lg"
-                style={{ backgroundColor: 'var(--color-success)20' }}
-              >
-                <div className="flex items-center gap-3">
-                  <div 
-                    className="w-3 h-3 rounded-full"
-                    style={{ backgroundColor: 'var(--color-success)' }}
-                  />
-                  <span 
-                    className="font-medium"
-                    style={{ color: 'var(--color-text-secondary)' }}
-                  >
-                    Terminées
-                  </span>
-                </div>
-                <span 
-                  className="text-2xl font-bold"
-                  style={{ color: 'var(--color-success)' }}
-                >
-                  {stats.tasks.done}
-                </span>
-              </div>
 
-              {stats.tasks.overdue > 0 && (
-                <div 
-                  className="flex items-center justify-between p-4 rounded-lg border-2"
-                  style={{ 
-                    backgroundColor: 'var(--color-error)20',
-                    borderColor: 'var(--color-error)40'
-                  }}
-                >
-                  <div className="flex items-center gap-3">
-                    <svg 
-                      className="w-5 h-5" 
-                      fill="none" 
-                      stroke="currentColor" 
-                      viewBox="0 0 24 24"
-                      style={{ color: 'var(--color-error)' }}
-                    >
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    <span 
-                      className="font-medium"
-                      style={{ color: 'var(--color-error)' }}
-                    >
-                      En retard
-                    </span>
-                  </div>
-                  <span 
-                    className="text-2xl font-bold"
-                    style={{ color: 'var(--color-error)' }}
+            {upcomingItems.length === 0 ? (
+              <p 
+                className="text-center py-8"
+                style={{ color: 'var(--color-text-tertiary)' }}
+              >
+                Rien de prévu cette semaine
+              </p>
+            ) : (
+              <div className="space-y-3">
+                {upcomingItems.map((item) => (
+                  <div
+                    key={item.id}
+                    className="flex items-start gap-3 p-3 rounded-lg border"
+                    style={{
+                      backgroundColor: 'var(--color-bg-secondary)',
+                      borderColor: 'var(--color-border)'
+                    }}
                   >
-                    {stats.tasks.overdue}
-                  </span>
-                </div>
-              )}
-            </div>
+                    <div 
+                      className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
+                      style={{ 
+                        backgroundColor: item.type === 'event' 
+                          ? 'var(--color-secondary-light)' 
+                          : item.priority === 'high'
+                          ? 'var(--color-error)20'
+                          : 'var(--color-primary-light)'
+                      }}
+                    >
+                      {item.type === 'event' ? (
+                        <svg 
+                          className="w-5 h-5" 
+                          fill="none" 
+                          stroke="currentColor" 
+                          viewBox="0 0 24 24"
+                          style={{ color: 'var(--color-secondary)' }}
+                        >
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                      ) : (
+                        <svg 
+                          className="w-5 h-5" 
+                          fill="none" 
+                          stroke="currentColor" 
+                          viewBox="0 0 24 24"
+                          style={{ 
+                            color: item.priority === 'high' 
+                              ? 'var(--color-error)' 
+                              : 'var(--color-primary)' 
+                          }}
+                        >
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                        </svg>
+                      )}
+                    </div>
+                    <div className="flex-1">
+                      <p 
+                        className="font-medium"
+                        style={{ color: 'var(--color-text-primary)' }}
+                      >
+                        {item.title}
+                      </p>
+                      <p 
+                        className="text-sm"
+                        style={{ color: 'var(--color-text-secondary)' }}
+                      >
+                        {new Date(item.date).toLocaleDateString('fr-FR', {
+                          weekday: 'short',
+                          day: 'numeric',
+                          month: 'short',
+                          hour: item.type === 'event' ? '2-digit' : undefined,
+                          minute: item.type === 'event' ? '2-digit' : undefined
+                        })}
+                        {item.priority === 'high' && ' • ⚠️ Urgent'}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 
-        {/* Actions rapides */}
+        {/* Répartition des tâches */}
         <div 
           className="rounded-xl shadow-sm border p-6"
           style={{
@@ -512,156 +697,173 @@ export default function DashboardPage() {
           }}
         >
           <h3 
-            className="text-lg font-semibold mb-4"
+            className="text-lg font-semibold mb-6"
             style={{ color: 'var(--color-text-primary)' }}
           >
-            Actions rapides
+            📊 Répartition des tâches
           </h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <button
-              onClick={() => router.push('/taches')}
-              className="flex items-center gap-3 p-4 rounded-lg transition-colors text-left"
-              style={{ backgroundColor: 'var(--color-primary-light)' }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.opacity = '0.8';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.opacity = '1';
-              }}
-            >
-              <svg 
-                className="w-8 h-8" 
-                fill="none" 
-                stroke="currentColor" 
-                viewBox="0 0 24 24"
-                style={{ color: 'var(--color-primary)' }}
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-              </svg>
-              <div>
-                <p 
-                  className="font-semibold"
-                  style={{ color: 'var(--color-text-primary)' }}
-                >
-                  Nouvelle tâche
-                </p>
-                <p 
-                  className="text-sm"
-                  style={{ color: 'var(--color-text-secondary)' }}
-                >
-                  Ajouter une tâche
-                </p>
-              </div>
-            </button>
 
-            <button
-              onClick={() => router.push('/calendrier')}
-              className="flex items-center gap-3 p-4 rounded-lg transition-colors text-left"
-              style={{ backgroundColor: 'var(--color-secondary-light)' }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.opacity = '0.8';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.opacity = '1';
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div 
+              className="p-4 rounded-lg border-l-4"
+              style={{
+                backgroundColor: 'var(--color-primary-light)',
+                borderLeftColor: 'var(--color-primary)'
               }}
             >
-              <svg 
-                className="w-8 h-8" 
-                fill="none" 
-                stroke="currentColor" 
-                viewBox="0 0 24 24"
-                style={{ color: 'var(--color-secondary)' }}
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-              </svg>
-              <div>
-                <p 
-                  className="font-semibold"
-                  style={{ color: 'var(--color-text-primary)' }}
+              <div className="flex items-center justify-between">
+                <div>
+                  <p 
+                    className="text-sm font-medium"
+                    style={{ color: 'var(--color-text-secondary)' }}
+                  >
+                    À faire
+                  </p>
+                  <p 
+                    className="text-3xl font-bold mt-1"
+                    style={{ color: 'var(--color-primary)' }}
+                  >
+                    {stats.tasks.todo}
+                  </p>
+                </div>
+                <div 
+                  className="w-16 h-16 rounded-full flex items-center justify-center"
+                  style={{ backgroundColor: 'var(--color-primary)20' }}
                 >
-                  Nouvel événement
-                </p>
-                <p 
-                  className="text-sm"
-                  style={{ color: 'var(--color-text-secondary)' }}
-                >
-                  Planifier un RDV
-                </p>
+                  <svg 
+                    className="w-8 h-8" 
+                    fill="none" 
+                    stroke="currentColor" 
+                    viewBox="0 0 24 24"
+                    style={{ color: 'var(--color-primary)' }}
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                  </svg>
+                </div>
               </div>
-            </button>
+            </div>
 
-            <button
-              onClick={() => router.push('/projets')}
-              className="flex items-center gap-3 p-4 rounded-lg transition-colors text-left"
-              style={{ backgroundColor: 'var(--color-warning)20' }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.opacity = '0.8';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.opacity = '1';
+            <div 
+              className="p-4 rounded-lg border-l-4"
+              style={{
+                backgroundColor: 'var(--color-warning)20',
+                borderLeftColor: 'var(--color-warning)'
               }}
             >
-              <svg 
-                className="w-8 h-8" 
-                fill="none" 
-                stroke="currentColor" 
-                viewBox="0 0 24 24"
-                style={{ color: 'var(--color-warning)' }}
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
-              </svg>
-              <div>
-                <p 
-                  className="font-semibold"
-                  style={{ color: 'var(--color-text-primary)' }}
+              <div className="flex items-center justify-between">
+                <div>
+                  <p 
+                    className="text-sm font-medium"
+                    style={{ color: 'var(--color-text-secondary)' }}
+                  >
+                    En cours
+                  </p>
+                  <p 
+                    className="text-3xl font-bold mt-1"
+                    style={{ color: 'var(--color-warning)' }}
+                  >
+                    {stats.tasks.in_progress}
+                  </p>
+                </div>
+                <div 
+                  className="w-16 h-16 rounded-full flex items-center justify-center"
+                  style={{ backgroundColor: 'var(--color-warning)20' }}
                 >
-                  Nouveau projet
-                </p>
-                <p 
-                  className="text-sm"
-                  style={{ color: 'var(--color-text-secondary)' }}
-                >
-                  Démarrer un projet
-                </p>
+                  <svg 
+                    className="w-8 h-8" 
+                    fill="none" 
+                    stroke="currentColor" 
+                    viewBox="0 0 24 24"
+                    style={{ color: 'var(--color-warning)' }}
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                  </svg>
+                </div>
               </div>
-            </button>
+            </div>
 
-            <button
-              onClick={() => router.push('/taches')}
-              className="flex items-center gap-3 p-4 rounded-lg transition-colors text-left"
-              style={{ backgroundColor: 'var(--color-success)20' }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.opacity = '0.8';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.opacity = '1';
+            <div 
+              className="p-4 rounded-lg border-l-4"
+              style={{
+                backgroundColor: 'var(--color-success)20',
+                borderLeftColor: 'var(--color-success)'
               }}
             >
-              <svg 
-                className="w-8 h-8" 
-                fill="none" 
-                stroke="currentColor" 
-                viewBox="0 0 24 24"
-                style={{ color: 'var(--color-success)' }}
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
-              </svg>
-              <div>
-                <p 
-                  className="font-semibold"
-                  style={{ color: 'var(--color-text-primary)' }}
+              <div className="flex items-center justify-between">
+                <div>
+                  <p 
+                    className="text-sm font-medium"
+                    style={{ color: 'var(--color-text-secondary)' }}
+                  >
+                    Terminées
+                  </p>
+                  <p 
+                    className="text-3xl font-bold mt-1"
+                    style={{ color: 'var(--color-success)' }}
+                  >
+                    {stats.tasks.done}
+                  </p>
+                </div>
+                <div 
+                  className="w-16 h-16 rounded-full flex items-center justify-center"
+                  style={{ backgroundColor: 'var(--color-success)20' }}
                 >
-                  Voir mes tâches
-                </p>
-                <p 
-                  className="text-sm"
-                  style={{ color: 'var(--color-text-secondary)' }}
-                >
-                  Gérer le Kanban
-                </p>
+                  <svg 
+                    className="w-8 h-8" 
+                    fill="none" 
+                    stroke="currentColor" 
+                    viewBox="0 0 24 24"
+                    style={{ color: 'var(--color-success)' }}
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
               </div>
-            </button>
+            </div>
           </div>
+
+          {stats.tasks.overdue > 0 && (
+            <div 
+              className="mt-4 p-4 rounded-lg border-l-4 flex items-center justify-between"
+              style={{
+                backgroundColor: 'var(--color-error)20',
+                borderLeftColor: 'var(--color-error)'
+              }}
+            >
+              <div className="flex items-center gap-3">
+                <svg 
+                  className="w-6 h-6" 
+                  fill="none" 
+                  stroke="currentColor" 
+                  viewBox="0 0 24 24"
+                  style={{ color: 'var(--color-error)' }}
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <div>
+                  <p 
+                    className="font-semibold"
+                    style={{ color: 'var(--color-error)' }}
+                  >
+                    {stats.tasks.overdue} tâche{stats.tasks.overdue > 1 ? 's' : ''} en retard
+                  </p>
+                  <p 
+                    className="text-sm"
+                    style={{ color: 'var(--color-text-secondary)' }}
+                  >
+                    Action requise
+                  </p>
+                </div>
+              </div>
+              <Link
+                href="/taches"
+                className="px-4 py-2 rounded-lg font-medium text-white hover:opacity-80 transition-opacity"
+                style={{ backgroundColor: 'var(--color-error)' }}
+              >
+                Voir
+              </Link>
+            </div>
+          )}
         </div>
       </div>
     </div>

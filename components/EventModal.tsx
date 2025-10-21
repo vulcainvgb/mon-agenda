@@ -1,6 +1,6 @@
 'use client';
 
-import { Event, Project } from '../lib/types';
+import { Event, Project, ContactGroup } from '../lib/types';
 import ProjectTimeDisplay from './ProjectTimeDisplay';
 
 interface Contact {
@@ -25,13 +25,15 @@ interface EventModalProps {
   setFormData: React.Dispatch<React.SetStateAction<any>>;
   projects: Project[];
   contacts: Contact[];
+  contactGroups: ContactGroup[];
   selectedContacts: Array<{ contact_id: string; role: string; rsvp_status: string }>;
   setSelectedContacts: React.Dispatch<React.SetStateAction<Array<{ contact_id: string; role: string; rsvp_status: string }>>>;
+  selectedGroups: string[];
+  setSelectedGroups: React.Dispatch<React.SetStateAction<string[]>>;
   onSave: () => void;
   onDelete: () => void;
 }
 
-// 🎨 Palette de couleurs Google Calendar avec noms français (couleurs exactes)
 const GOOGLE_COLORS = [
   { hex: '#7986cb', name: 'Lavande' },
   { hex: '#33b679', name: 'Sauge' },
@@ -52,18 +54,6 @@ const roleLabels = {
   speaker: 'Speaker',
 };
 
-const roleColors = {
-  participant: '#3b82f6',
-  organizer: '#f59e0b',
-  speaker: '#8b5cf6',
-};
-
-const rsvpLabels = {
-  pending: 'En attente',
-  accepted: 'Accepté',
-  declined: 'Refusé',
-};
-
 export default function EventModal({
   isOpen,
   onClose,
@@ -72,17 +62,18 @@ export default function EventModal({
   setFormData,
   projects,
   contacts,
+  contactGroups,
   selectedContacts,
   setSelectedContacts,
+  selectedGroups,
+  setSelectedGroups,
   onSave,
   onDelete
 }: EventModalProps) {
   if (!isOpen) return null;
 
-  // Fonction pour calculer l'heure de fin automatiquement (+1h) UNIQUEMENT lors de la création
   const handleStartTimeChange = (newStartTime: string) => {
     setFormData((prev: any) => {
-      // Si on est en mode édition (event existe), ne JAMAIS recalculer l'heure de fin
       if (event) {
         return {
           ...prev,
@@ -90,23 +81,17 @@ export default function EventModal({
         };
       }
       
-      // Mode création : calculer l'heure de fin SEULEMENT si elle n'existe pas encore
-      // ou si elle était vide
       const shouldCalculateEndTime = !prev.end_time || prev.end_time === '';
       
       if (!shouldCalculateEndTime) {
-        // L'utilisateur a déjà défini une heure de fin, ne pas la toucher
         return {
           ...prev,
           start_time: newStartTime
         };
       }
       
-      // Calculer l'heure de fin (1h après le début)
       const startDate = new Date(newStartTime);
-      const endDate = new Date(startDate.getTime() + 60 * 60 * 1000); // +1 heure
-      
-      // Formater pour input datetime-local
+      const endDate = new Date(startDate.getTime() + 60 * 60 * 1000);
       const endTimeFormatted = endDate.toISOString().slice(0, 16);
       
       return {
@@ -117,10 +102,8 @@ export default function EventModal({
     });
   };
 
-  // Trouver le projet sélectionné
   const selectedProject = projects.find(p => p.id === formData.project_id);
 
-  // Calculer la durée de cet événement (en minutes)
   const calculateEventDuration = () => {
     if (!formData.start_time || !formData.end_time) return 0;
     const start = new Date(formData.start_time);
@@ -129,11 +112,8 @@ export default function EventModal({
   };
 
   const eventDuration = calculateEventDuration();
-
-  // Trouver le nom de la couleur sélectionnée
   const selectedColorName = GOOGLE_COLORS.find(c => c.hex === formData.color)?.name || 'Personnalisée';
 
-  // Gestion des contacts
   const addContact = () => {
     if (contacts.length === 0) {
       alert('Aucun contact disponible. Créez d\'abord des contacts.');
@@ -168,11 +148,23 @@ export default function EventModal({
     setSelectedContacts(updated);
   };
 
+  const toggleGroup = (groupId: string) => {
+    if (selectedGroups.includes(groupId)) {
+      setSelectedGroups(selectedGroups.filter(id => id !== groupId));
+    } else {
+      setSelectedGroups([...selectedGroups, groupId]);
+    }
+  };
+
+  const getGroupMemberCount = (groupId: string) => {
+    // Cette fonction sera appelée avec les données chargées
+    return 0; // Placeholder
+  };
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-theme-primary rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto border border-theme">
         <div className="p-6">
-          {/* Header */}
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-2xl font-bold text-theme-primary">
               {event ? 'Modifier l\'événement' : 'Nouvel événement'}
@@ -187,7 +179,6 @@ export default function EventModal({
             </button>
           </div>
 
-          {/* Form */}
           <div className="space-y-4">
             {/* Titre */}
             <div>
@@ -250,7 +241,6 @@ export default function EventModal({
               </div>
             </div>
 
-            {/* Durée de l'événement */}
             {eventDuration > 0 && (
               <div className="bg-theme-secondary px-3 py-2 rounded-lg text-sm text-theme-secondary">
                 Durée : <span className="font-medium">{Math.floor(eventDuration / 60)}h {eventDuration % 60}min</span>
@@ -279,7 +269,6 @@ export default function EventModal({
                 ))}
               </select>
 
-              {/* Affichage du temps du projet sélectionné */}
               {selectedProject && (
                 <div className="mt-3 p-4 rounded-lg border-2"
                      style={{ 
@@ -301,7 +290,6 @@ export default function EventModal({
                     <p className="text-sm text-theme-secondary mb-2">{selectedProject.description}</p>
                   )}
 
-                  {/* Info sur l'ajout de temps */}
                   {eventDuration > 0 && (
                     <div className="text-xs text-theme-tertiary mt-2 pt-2 border-t"
                          style={{ borderColor: 'var(--color-border-light)' }}>
@@ -316,11 +304,11 @@ export default function EventModal({
               )}
             </div>
 
-            {/* Participants/Contacts */}
+            {/* SECTION CONTACTS INDIVIDUELS */}
             <div>
               <div className="flex items-center justify-between mb-2">
                 <label className="block text-sm font-medium text-theme-secondary">
-                  👥 Participants
+                  👥 Participants individuels
                 </label>
                 <button
                   type="button"
@@ -331,13 +319,13 @@ export default function EventModal({
                     color: 'var(--color-primary)',
                   }}
                 >
-                  + Ajouter
+                  + Ajouter un contact
                 </button>
               </div>
 
               {selectedContacts.length === 0 ? (
                 <p className="text-sm text-center py-4 text-theme-tertiary">
-                  Aucun participant
+                  Aucun participant individuel
                 </p>
               ) : (
                 <div className="space-y-2">
@@ -346,7 +334,6 @@ export default function EventModal({
                       key={index}
                       className="flex gap-2 items-center p-2 rounded-lg bg-theme-secondary"
                     >
-                      {/* Sélection du contact */}
                       <select
                         value={sc.contact_id}
                         onChange={(e) => updateContactId(index, e.target.value)}
@@ -359,7 +346,6 @@ export default function EventModal({
                         ))}
                       </select>
                       
-                      {/* Rôle */}
                       <select
                         value={sc.role}
                         onChange={(e) => updateContactRole(index, e.target.value)}
@@ -370,7 +356,6 @@ export default function EventModal({
                         <option value="speaker">🎤 Speaker</option>
                       </select>
 
-                      {/* RSVP */}
                       <select
                         value={sc.rsvp_status}
                         onChange={(e) => updateContactRsvp(index, e.target.value)}
@@ -381,7 +366,6 @@ export default function EventModal({
                         <option value="declined">❌ Refusé</option>
                       </select>
 
-                      {/* Bouton supprimer */}
                       <button
                         type="button"
                         onClick={() => removeContact(index)}
@@ -399,7 +383,69 @@ export default function EventModal({
               )}
             </div>
 
-            {/* Couleur - Palette Google Calendar */}
+            {/* SECTION GROUPES */}
+            <div className="border-t border-theme pt-4">
+              <div className="flex items-center justify-between mb-2">
+                <label className="block text-sm font-medium text-theme-secondary">
+                  🏢 Groupes participants
+                </label>
+                <span className="text-xs text-theme-tertiary">
+                  {selectedGroups.length} groupe{selectedGroups.length > 1 ? 's' : ''} sélectionné{selectedGroups.length > 1 ? 's' : ''}
+                </span>
+              </div>
+
+              {contactGroups.length === 0 ? (
+                <p className="text-sm text-center py-4 text-theme-tertiary">
+                  Aucun groupe de contacts disponible
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {contactGroups.map((group) => (
+                    <div
+                      key={group.id}
+                      onClick={() => toggleGroup(group.id)}
+                      className="flex items-center justify-between p-3 rounded-lg border cursor-pointer transition-all hover:shadow-sm"
+                      style={{
+                        backgroundColor: selectedGroups.includes(group.id) 
+                          ? `${group.color}10` 
+                          : 'var(--color-bg-secondary)',
+                        borderColor: selectedGroups.includes(group.id) 
+                          ? group.color 
+                          : 'var(--color-border)',
+                        borderWidth: selectedGroups.includes(group.id) ? '2px' : '1px',
+                      }}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div
+                          className="w-10 h-10 rounded-lg flex items-center justify-center text-xl"
+                          style={{
+                            backgroundColor: `${group.color}20`,
+                            color: group.color,
+                          }}
+                        >
+                          🏢
+                        </div>
+                        <div>
+                          <p className="font-medium text-theme-primary">
+                            {group.name}
+                          </p>
+                          <p className="text-xs text-theme-tertiary">
+                            {group.type}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {selectedGroups.includes(group.id) && (
+                          <span className="text-2xl">✅</span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Couleur */}
             <div>
               <label className="block text-sm font-medium text-theme-secondary mb-2">
                 Couleur : <span className="text-theme-tertiary font-normal">{selectedColorName}</span>
@@ -431,7 +477,6 @@ export default function EventModal({
                         } : {})
                       } as any}
                     >
-                      {/* Checkmark pour la couleur sélectionnée */}
                       {formData.color === colorOption.hex && (
                         <div className="w-full h-full flex items-center justify-center">
                           <svg className="w-5 h-5 text-white drop-shadow-lg" fill="currentColor" viewBox="0 0 20 20">
@@ -440,14 +485,12 @@ export default function EventModal({
                         </div>
                       )}
                     </div>
-                    {/* Nom de la couleur au survol (caché sur mobile) */}
                     <span className="hidden sm:block absolute -bottom-6 left-1/2 transform -translate-x-1/2 whitespace-nowrap text-xs text-theme-secondary opacity-0 group-hover:opacity-100 transition-opacity bg-theme-primary px-2 py-1 rounded shadow-sm border border-theme">
                       {colorOption.name}
                     </span>
                   </button>
                 ))}
               </div>
-              {/* Note pour mobile */}
               <p className="mt-3 text-xs text-theme-tertiary sm:hidden">
                 💡 Touchez une couleur pour la sélectionner
               </p>

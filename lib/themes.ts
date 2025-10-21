@@ -1,4 +1,5 @@
 // lib/themes.ts
+import React from 'react';
 
 export interface Theme {
   id: string;
@@ -160,33 +161,32 @@ export const themes: Record<string, Theme> = {
       info: '#06b6d4',
     }
   },
-
+ 
   //Thème Orange sunset
-  
   sunset: {
     id: 'sunset',
     name: 'Orange sunset',
     colors: {
-      primary: '#fda900ff',
-      primaryHover: '#b57d0fff',
-      primaryLight: '#fadd9fff',
+      primary: '#fda900',
+      primaryHover: '#b57d0f',
+      primaryLight: '#fadd9f',
       
-      secondary: '#ffffffff',
-      secondaryHover: '#fae2a9ff',
-      secondaryLight: '#fcda92ff',
+      secondary: '#ffffff',
+      secondaryHover: '#fae2a9',
+      secondaryLight: '#fcda92',
       
       bgPrimary: '#ffffff',
-      bgSecondary: '#f8e6d3ff',
-      bgTertiary: '#fae7cdff',
+      bgSecondary: '#f8e6d3',
+      bgTertiary: '#fae7cd',
       
-      textPrimary: '#7d3e00ff',
-      textSecondary: '#a75f12ff',
-      textTertiary: '#b07832ff',
+      textPrimary: '#7d3e00',
+      textSecondary: '#a75f12',
+      textTertiary: '#b07832',
       
-      border: '#f8aa52ff',
-      borderLight: '#ffd4adff',
+      border: '#f8aa52',
+      borderLight: '#ffd4ad',
       
-      success: '#0ae89eff',
+      success: '#0ae89e',
       warning: '#f59e0b',
       error: '#ef4444',
       info: '#06b6d4',
@@ -208,7 +208,7 @@ export const themes: Record<string, Theme> = {
       
       bgPrimary: '#111827',
       bgSecondary: '#1f2937',
-      bgTertiary: '#374151',
+      bgTertiary: '#595d64ff',
       
       textPrimary: '#f9fafb',
       textSecondary: '#d1d5db',
@@ -223,22 +223,56 @@ export const themes: Record<string, Theme> = {
       info: '#3b82f6',
     }
   },
+
+  // Thème Halloween festif
+  nightmare: {
+    id: 'nightmare',
+    name: 'Halloween',
+    colors: {
+      primary: '#FF7F00',
+      primaryHover: '#E66F00',
+      primaryLight: '#FFA500',
+      
+      secondary: '#1A1A1A',
+      secondaryHover: '#000000',
+      secondaryLight: '#555555',
+      
+      bgPrimary: '#484e5aff',
+      bgSecondary: '#1C1E26',
+      bgTertiary: '#4B0082',
+      
+      textPrimary: '#F0F0F0',
+      textSecondary: '#FFD700',
+      textTertiary: '#AAAAAA',
+      
+      border: '#696969',
+      borderLight: '#333333',
+      
+      success: '#2E8B57',
+      warning: '#FFD700',
+      error: '#8B0000',
+      info: '#4682B4',
+    }
+  },
 };
 
-// Appliquer un thème
+// ✨ Appliquer un thème - SYSTÈME COMBINÉ
 export function applyTheme(theme: Theme) {
   const root = document.documentElement;
   
-  // Appliquer toutes les variables CSS
+  // 1️⃣ Appliquer l'attribut data-theme (pour le CSS dans globals.css)
+  root.setAttribute('data-theme', theme.id);
+  
+  // 2️⃣ Appliquer les variables CSS via JavaScript (fallback + surcharge possible)
   Object.entries(theme.colors).forEach(([key, value]) => {
     const cssVarName = `--color-${key.replace(/([A-Z])/g, '-$1').toLowerCase()}`;
     root.style.setProperty(cssVarName, value);
   });
   
-  // Sauvegarder dans localStorage
+  // 3️⃣ Sauvegarder dans localStorage
   localStorage.setItem('app-theme', theme.id);
   
-  console.log('🎨 Thème appliqué:', theme.name);
+  console.log('🎨 Thème appliqué:', theme.name, '(ID:', theme.id + ')');
 }
 
 // Charger le thème sauvegardé
@@ -246,9 +280,11 @@ export function loadSavedTheme(): Theme {
   const savedThemeId = localStorage.getItem('app-theme');
   
   if (savedThemeId && themes[savedThemeId]) {
+    console.log('📂 Thème chargé depuis localStorage:', savedThemeId);
     return themes[savedThemeId];
   }
   
+  console.log('🎨 Thème par défaut chargé');
   return themes.default;
 }
 
@@ -273,6 +309,3 @@ export function useTheme() {
     availableThemes: Object.values(themes),
   };
 }
-
-// Pour Next.js - importer React
-import React from 'react';

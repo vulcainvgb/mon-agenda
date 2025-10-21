@@ -128,29 +128,51 @@ export default function MonthlyReport({ projectId, projectName, projectColor }: 
   };
 
   return (
-    <div className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
+    <div 
+      className="rounded-xl shadow-lg border overflow-hidden"
+      style={{
+        backgroundColor: 'var(--color-bg-primary)',
+        borderColor: 'var(--color-border)'
+      }}
+    >
       {/* Header */}
       <div 
-        className="p-4 cursor-pointer hover:bg-gray-50 transition-colors"
+        className="p-4 cursor-pointer hover:opacity-90 transition-opacity"
+        style={{ backgroundColor: 'var(--color-bg-secondary)' }}
         onClick={() => setIsExpanded(!isExpanded)}
       >
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg 
+              className="w-6 h-6" 
+              fill="none" 
+              stroke="currentColor" 
+              viewBox="0 0 24 24"
+              style={{ color: 'var(--color-primary)' }}
+            >
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
             </svg>
             <div>
-              <h2 className="text-xl font-bold text-gray-900">Rapport mensuel</h2>
-              <p className="text-sm text-gray-600">
+              <h2 
+                className="text-xl font-bold"
+                style={{ color: 'var(--color-text-primary)' }}
+              >
+                Rapport mensuel
+              </h2>
+              <p 
+                className="text-sm"
+                style={{ color: 'var(--color-text-secondary)' }}
+              >
                 {getMonthName(selectedMonth)} - {formatDuration(totalMinutes)} passées
               </p>
             </div>
           </div>
           <svg 
-            className={`w-6 h-6 text-gray-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+            className={`w-6 h-6 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
             fill="none" 
             stroke="currentColor" 
             viewBox="0 0 24 24"
+            style={{ color: 'var(--color-text-tertiary)' }}
           >
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
           </svg>
@@ -159,23 +181,37 @@ export default function MonthlyReport({ projectId, projectName, projectColor }: 
 
       {/* Contenu du rapport */}
       {isExpanded && (
-        <div className="p-6 border-t border-gray-200">
+        <div 
+          className="p-6 border-t"
+          style={{ borderColor: 'var(--color-border)' }}
+        >
           {/* Contrôles */}
           <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
             <div className="flex items-center gap-2">
-              <label className="text-sm font-medium text-gray-700">Mois :</label>
+              <label 
+                className="text-sm font-medium"
+                style={{ color: 'var(--color-text-secondary)' }}
+              >
+                Mois :
+              </label>
               <input
                 type="month"
                 value={selectedMonth}
                 onChange={(e) => setSelectedMonth(e.target.value)}
-                className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="border rounded-lg px-3 py-2 text-sm"
+                style={{
+                  backgroundColor: 'var(--color-bg-secondary)',
+                  borderColor: 'var(--color-border)',
+                  color: 'var(--color-text-primary)'
+                }}
               />
             </div>
 
             <div className="flex gap-2">
               <button
                 onClick={exportToCSV}
-                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium flex items-center gap-2"
+                className="px-4 py-2 text-white rounded-lg hover:opacity-90 transition-opacity text-sm font-medium flex items-center gap-2"
+                style={{ backgroundColor: 'var(--color-success)' }}
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -185,7 +221,8 @@ export default function MonthlyReport({ projectId, projectName, projectColor }: 
               
               <button
                 onClick={exportToPDF}
-                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm font-medium flex items-center gap-2"
+                className="px-4 py-2 text-white rounded-lg hover:opacity-90 transition-opacity text-sm font-medium flex items-center gap-2"
+                style={{ backgroundColor: 'var(--color-error)' }}
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
@@ -197,44 +234,99 @@ export default function MonthlyReport({ projectId, projectName, projectColor }: 
 
           {/* Statistiques */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-            <div className="bg-blue-50 rounded-lg p-4 border border-blue-100">
+            <div 
+              className="rounded-lg p-4 border"
+              style={{
+                backgroundColor: 'var(--color-primary-light)',
+                borderColor: 'var(--color-primary)40'
+              }}
+            >
               <div className="flex items-center gap-3">
-                <div className="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center">
+                <div 
+                  className="w-12 h-12 rounded-full flex items-center justify-center"
+                  style={{ backgroundColor: 'var(--color-primary)' }}
+                >
                   <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-600">Total heures</p>
-                  <p className="text-2xl font-bold text-gray-900">{formatDuration(totalMinutes)}</p>
+                  <p 
+                    className="text-sm"
+                    style={{ color: 'var(--color-text-secondary)' }}
+                  >
+                    Total heures
+                  </p>
+                  <p 
+                    className="text-2xl font-bold"
+                    style={{ color: 'var(--color-text-primary)' }}
+                  >
+                    {formatDuration(totalMinutes)}
+                  </p>
                 </div>
               </div>
             </div>
 
-            <div className="bg-purple-50 rounded-lg p-4 border border-purple-100">
+            <div 
+              className="rounded-lg p-4 border"
+              style={{
+                backgroundColor: 'var(--color-secondary-light)',
+                borderColor: 'var(--color-secondary)40'
+              }}
+            >
               <div className="flex items-center gap-3">
-                <div className="w-12 h-12 bg-purple-600 rounded-full flex items-center justify-center">
+                <div 
+                  className="w-12 h-12 rounded-full flex items-center justify-center"
+                  style={{ backgroundColor: 'var(--color-secondary)' }}
+                >
                   <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                   </svg>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-600">Événements</p>
-                  <p className="text-2xl font-bold text-gray-900">{events.length}</p>
+                  <p 
+                    className="text-sm"
+                    style={{ color: 'var(--color-text-secondary)' }}
+                  >
+                    Événements
+                  </p>
+                  <p 
+                    className="text-2xl font-bold"
+                    style={{ color: 'var(--color-text-primary)' }}
+                  >
+                    {events.length}
+                  </p>
                 </div>
               </div>
             </div>
 
-            <div className="bg-green-50 rounded-lg p-4 border border-green-100">
+            <div 
+              className="rounded-lg p-4 border"
+              style={{
+                backgroundColor: 'var(--color-success)20',
+                borderColor: 'var(--color-success)40'
+              }}
+            >
               <div className="flex items-center gap-3">
-                <div className="w-12 h-12 bg-green-600 rounded-full flex items-center justify-center">
+                <div 
+                  className="w-12 h-12 rounded-full flex items-center justify-center"
+                  style={{ backgroundColor: 'var(--color-success)' }}
+                >
                   <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                   </svg>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-600">Moyenne/événement</p>
-                  <p className="text-2xl font-bold text-gray-900">
+                  <p 
+                    className="text-sm"
+                    style={{ color: 'var(--color-text-secondary)' }}
+                  >
+                    Moyenne/événement
+                  </p>
+                  <p 
+                    className="text-2xl font-bold"
+                    style={{ color: 'var(--color-text-primary)' }}
+                  >
                     {events.length > 0 ? formatDuration(Math.round(totalMinutes / events.length)) : '0h'}
                   </p>
                 </div>
@@ -244,8 +336,16 @@ export default function MonthlyReport({ projectId, projectName, projectColor }: 
 
           {/* Graphique par semaine */}
           {Object.keys(eventsByWeek).length > 0 && (
-            <div className="mb-6 p-4 bg-gray-50 rounded-lg">
-              <h3 className="text-sm font-semibold text-gray-700 mb-3">Répartition par semaine</h3>
+            <div 
+              className="mb-6 p-4 rounded-lg"
+              style={{ backgroundColor: 'var(--color-bg-secondary)' }}
+            >
+              <h3 
+                className="text-sm font-semibold mb-3"
+                style={{ color: 'var(--color-text-primary)' }}
+              >
+                Répartition par semaine
+              </h3>
               <div className="space-y-2">
                 {Object.entries(eventsByWeek)
                   .sort(([a], [b]) => Number(a) - Number(b))
@@ -257,11 +357,22 @@ export default function MonthlyReport({ projectId, projectName, projectColor }: 
                     
                     return (
                       <div key={week} className="flex items-center gap-3">
-                        <span className="text-xs font-medium text-gray-600 w-20">Semaine {week}</span>
-                        <div className="flex-1 bg-gray-200 rounded-full h-6 relative overflow-hidden">
+                        <span 
+                          className="text-xs font-medium w-20"
+                          style={{ color: 'var(--color-text-secondary)' }}
+                        >
+                          Semaine {week}
+                        </span>
+                        <div 
+                          className="flex-1 rounded-full h-6 relative overflow-hidden"
+                          style={{ backgroundColor: 'var(--color-bg-tertiary)' }}
+                        >
                           <div 
-                            className="bg-blue-600 h-6 rounded-full transition-all flex items-center justify-end pr-2"
-                            style={{ width: `${percentage}%` }}
+                            className="h-6 rounded-full transition-all flex items-center justify-end pr-2"
+                            style={{ 
+                              width: `${percentage}%`,
+                              backgroundColor: 'var(--color-primary)'
+                            }}
                           >
                             {percentage > 15 && (
                               <span className="text-xs font-medium text-white">
@@ -270,7 +381,10 @@ export default function MonthlyReport({ projectId, projectName, projectColor }: 
                             )}
                           </div>
                         </div>
-                        <span className="text-xs text-gray-600 w-16 text-right">
+                        <span 
+                          className="text-xs w-16 text-right"
+                          style={{ color: 'var(--color-text-secondary)' }}
+                        >
                           {weekEvents.length} evt
                         </span>
                       </div>
@@ -283,34 +397,91 @@ export default function MonthlyReport({ projectId, projectName, projectColor }: 
           {/* Tableau des événements */}
           {loading ? (
             <div className="text-center py-8">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-              <p className="text-gray-600 mt-2">Chargement...</p>
+              <div 
+                className="animate-spin rounded-full h-8 w-8 border-b-2 mx-auto"
+                style={{ borderColor: 'var(--color-primary)' }}
+              ></div>
+              <p 
+                className="mt-2"
+                style={{ color: 'var(--color-text-secondary)' }}
+              >
+                Chargement...
+              </p>
             </div>
           ) : events.length === 0 ? (
-            <div className="text-center py-8 bg-gray-50 rounded-lg">
-              <svg className="w-12 h-12 text-gray-400 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div 
+              className="text-center py-8 rounded-lg"
+              style={{ backgroundColor: 'var(--color-bg-secondary)' }}
+            >
+              <svg 
+                className="w-12 h-12 mx-auto mb-2" 
+                fill="none" 
+                stroke="currentColor" 
+                viewBox="0 0 24 24"
+                style={{ color: 'var(--color-text-tertiary)' }}
+              >
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
               </svg>
-              <p className="text-gray-600">Aucun événement ce mois-ci</p>
+              <p style={{ color: 'var(--color-text-secondary)' }}>
+                Aucun événement ce mois-ci
+              </p>
             </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full">
-                <thead className="bg-gray-50 border-b-2 border-gray-200">
+                <thead 
+                  className="border-b-2"
+                  style={{ 
+                    backgroundColor: 'var(--color-bg-secondary)',
+                    borderColor: 'var(--color-border)'
+                  }}
+                >
                   <tr>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Date</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Événement</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Début</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Fin</th>
-                    <th className="px-4 py-3 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider">Durée</th>
+                    <th 
+                      className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider"
+                      style={{ color: 'var(--color-text-secondary)' }}
+                    >
+                      Date
+                    </th>
+                    <th 
+                      className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider"
+                      style={{ color: 'var(--color-text-secondary)' }}
+                    >
+                      Événement
+                    </th>
+                    <th 
+                      className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider"
+                      style={{ color: 'var(--color-text-secondary)' }}
+                    >
+                      Début
+                    </th>
+                    <th 
+                      className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider"
+                      style={{ color: 'var(--color-text-secondary)' }}
+                    >
+                      Fin
+                    </th>
+                    <th 
+                      className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider"
+                      style={{ color: 'var(--color-text-secondary)' }}
+                    >
+                      Durée
+                    </th>
                   </tr>
                 </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
+                <tbody className="divide-y" style={{ borderColor: 'var(--color-border)' }}>
                   {events.map((event) => {
                     const duration = calculateDuration(event.start_time, event.end_time);
                     return (
-                      <tr key={event.id} className="hover:bg-gray-50 transition-colors">
-                        <td className="px-4 py-3 text-sm text-gray-900">
+                      <tr 
+                        key={event.id} 
+                        className="hover:opacity-80 transition-opacity"
+                        style={{ backgroundColor: 'var(--color-bg-primary)' }}
+                      >
+                        <td 
+                          className="px-4 py-3 text-sm"
+                          style={{ color: 'var(--color-text-primary)' }}
+                        >
                           {new Date(event.start_time).toLocaleDateString('fr-FR', { 
                             day: '2-digit', 
                             month: 'short' 
@@ -322,37 +493,69 @@ export default function MonthlyReport({ projectId, projectName, projectColor }: 
                               className="w-3 h-3 rounded-full flex-shrink-0" 
                               style={{ backgroundColor: event.color }}
                             />
-                            <span className="text-sm font-medium text-gray-900">{event.title}</span>
+                            <span 
+                              className="text-sm font-medium"
+                              style={{ color: 'var(--color-text-primary)' }}
+                            >
+                              {event.title}
+                            </span>
                           </div>
                           {event.description && (
-                            <p className="text-xs text-gray-500 mt-1">{event.description}</p>
+                            <p 
+                              className="text-xs mt-1"
+                              style={{ color: 'var(--color-text-tertiary)' }}
+                            >
+                              {event.description}
+                            </p>
                           )}
                         </td>
-                        <td className="px-4 py-3 text-sm text-gray-600">
+                        <td 
+                          className="px-4 py-3 text-sm"
+                          style={{ color: 'var(--color-text-secondary)' }}
+                        >
                           {new Date(event.start_time).toLocaleTimeString('fr-FR', { 
                             hour: '2-digit', 
                             minute: '2-digit' 
                           })}
                         </td>
-                        <td className="px-4 py-3 text-sm text-gray-600">
+                        <td 
+                          className="px-4 py-3 text-sm"
+                          style={{ color: 'var(--color-text-secondary)' }}
+                        >
                           {new Date(event.end_time).toLocaleTimeString('fr-FR', { 
                             hour: '2-digit', 
                             minute: '2-digit' 
                           })}
                         </td>
-                        <td className="px-4 py-3 text-sm font-medium text-gray-900 text-right">
+                        <td 
+                          className="px-4 py-3 text-sm font-medium text-right"
+                          style={{ color: 'var(--color-text-primary)' }}
+                        >
                           {formatDuration(duration)}
                         </td>
                       </tr>
                     );
                   })}
                 </tbody>
-                <tfoot className="bg-gray-50 border-t-2 border-gray-200">
+                <tfoot 
+                  className="border-t-2"
+                  style={{ 
+                    backgroundColor: 'var(--color-bg-secondary)',
+                    borderColor: 'var(--color-border)'
+                  }}
+                >
                   <tr>
-                    <td colSpan={4} className="px-4 py-3 text-sm font-bold text-gray-900 text-right">
+                    <td 
+                      colSpan={4} 
+                      className="px-4 py-3 text-sm font-bold text-right"
+                      style={{ color: 'var(--color-text-primary)' }}
+                    >
                       TOTAL
                     </td>
-                    <td className="px-4 py-3 text-sm font-bold text-blue-600 text-right">
+                    <td 
+                      className="px-4 py-3 text-sm font-bold text-right"
+                      style={{ color: 'var(--color-primary)' }}
+                    >
                       {formatDuration(totalMinutes)}
                     </td>
                   </tr>

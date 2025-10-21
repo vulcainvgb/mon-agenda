@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '../../lib/supabase';
-import { Event, Project } from '../../lib/types';
+import { Event, Project, ContactGroup } from '../../lib/types';
 import { Calendar, momentLocalizer, Views } from 'react-big-calendar';
 import withDragAndDrop from 'react-big-calendar/lib/addons/dragAndDrop';
 import { DndProvider } from 'react-dnd';
@@ -84,6 +84,7 @@ export default function CalendrierPage() {
   const [loading, setLoading] = useState(true);
   const [projects, setProjects] = useState<Project[]>([]);
   const [contacts, setContacts] = useState<Contact[]>([]);
+  const [contactGroups, setContactGroups] = useState<ContactGroup[]>([]);
   const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>([]);
   const [eventContacts, setEventContacts] = useState<{ [eventId: string]: EventContact[] }>({});
   const [currentView, setCurrentView] = useState<typeof Views[keyof typeof Views]>(Views.MONTH);
@@ -92,6 +93,7 @@ export default function CalendrierPage() {
   const [showModal, setShowModal] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const [selectedContacts, setSelectedContacts] = useState<Array<{ contact_id: string; role: string; rsvp_status: string }>>([]);
+  const [selectedGroups, setSelectedGroups] = useState<string[]>([]);
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -140,10 +142,11 @@ export default function CalendrierPage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      const [eventsRes, projectsRes, contactsRes] = await Promise.all([
+      const [eventsRes, projectsRes, contactsRes, groupsRes] = await Promise.all([
         supabase.from('events').select('*, project:projects(*)').eq('user_id', user.id).order('start_time', { ascending: true }),
         supabase.from('projects').select('*').eq('user_id', user.id),
-        supabase.from('contacts').select('id, first_name, last_name, email').eq('user_id', user.id).eq('status', 'active').order('last_name', { ascending: true })
+        supabase.from('contacts').select('id, first_name, last_name, email').eq('user_id', user.id).eq('status', 'active').order('last_name', { ascending: true }),
+        supabase.from('contact_groups').select('*').eq('user_id', user.id).order('name', { ascending: true })
       ]);
 
       console.log('🔍 Événements reçus de Supabase:', eventsRes.data);
@@ -154,6 +157,7 @@ export default function CalendrierPage() {
       }
       if (projectsRes.data) setProjects(projectsRes.data);
       if (contactsRes.data) setContacts(contactsRes.data);
+      if (groupsRes.data) setContactGroups(groupsRes.data);
       setLoading(false);
     } catch (error) {
       console.error('❌ Erreur chargement:', error);
@@ -230,6 +234,7 @@ export default function CalendrierPage() {
     });
     setSelectedEvent(null);
     setSelectedContacts([]);
+    setSelectedGroups([]);
     setShowModal(true);
   };
 
@@ -252,19 +257,31 @@ export default function CalendrierPage() {
     });
 
     // Charger les contacts de cet événement
-    const { data, error } = await supabase
+    const { data: contactsData, error: contactsError } = await supabase
       .from('event_contacts')
       .select('*')
       .eq('event_id', fullEvent.id);
 
-    if (!error && data) {
-      setSelectedContacts(data.map(ec => ({
+    if (!contactsError && contactsData) {
+      setSelectedContacts(contactsData.map(ec => ({
         contact_id: ec.contact_id,
         role: ec.role,
         rsvp_status: ec.rsvp_status,
       })));
     } else {
       setSelectedContacts([]);
+    }
+
+    // Charger les groupes de cet événement
+    const { data: groupsData, error: groupsError } = await supabase
+      .from('event_contact_groups')
+      .select('group_id')
+      .eq('event_id', fullEvent.id);
+
+    if (!groupsError && groupsData) {
+      setSelectedGroups(groupsData.map(eg => eg.group_id));
+    } else {
+      setSelectedGroups([]);
     }
 
     setShowModal(true);
@@ -382,6 +399,12 @@ export default function CalendrierPage() {
           .from('event_contacts')
           .delete()
           .eq('event_id', eventId);
+
+        // Supprimer les anciens groupes
+        await supabase
+          .from('event_contact_groups')
+          .delete()
+          .eq('event_id', eventId);
       } else {
         // Mode création
         const { data, error } = await supabase
@@ -413,6 +436,24 @@ export default function CalendrierPage() {
           console.error('❌ Erreur ajout contacts:', contactError);
         } else {
           console.log('✅ Contacts ajoutés');
+        }
+      }
+
+      // Ajouter les nouveaux groupes
+      if (selectedGroups.length > 0) {
+        const groupsToInsert = selectedGroups.map(groupId => ({
+          event_id: eventId,
+          group_id: groupId,
+        }));
+
+        const { error: groupError } = await supabase
+          .from('event_contact_groups')
+          .insert(groupsToInsert);
+
+        if (groupError) {
+          console.error('❌ Erreur ajout groupes:', groupError);
+        } else {
+          console.log('✅ Groupes ajoutés');
         }
       }
 
@@ -524,6 +565,7 @@ export default function CalendrierPage() {
                 });
                 setSelectedEvent(null);
                 setSelectedContacts([]);
+                setSelectedGroups([]);
                 setShowModal(true);
               }}
               className="btn-primary flex items-center gap-2"
@@ -594,8 +636,11 @@ export default function CalendrierPage() {
             setFormData={setFormData}
             projects={projects}
             contacts={contacts}
+            contactGroups={contactGroups}
             selectedContacts={selectedContacts}
             setSelectedContacts={setSelectedContacts}
+            selectedGroups={selectedGroups}
+            setSelectedGroups={setSelectedGroups}
             onSave={handleSave}
             onDelete={handleDelete}
           />

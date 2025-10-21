@@ -5,6 +5,7 @@ import { supabase } from '../../lib/supabase'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import TaskTimer from '@/components/TaskTimer';
+import { ContactGroup } from '../../lib/types';
 
 interface Task {
   id: string
@@ -41,12 +42,21 @@ interface TaskContact {
   notified: boolean
 }
 
+interface TaskContactGroup {
+  id: string
+  task_id: string
+  group_id: string
+  contact_group?: ContactGroup
+}
+
 export default function TachesPage() {
   const [user, setUser] = useState<any>(null)
   const [tasks, setTasks] = useState<Task[]>([])
   const [projects, setProjects] = useState<Project[]>([])
   const [contacts, setContacts] = useState<Contact[]>([])
+  const [contactGroups, setContactGroups] = useState<ContactGroup[]>([])
   const [taskContacts, setTaskContacts] = useState<{ [taskId: string]: TaskContact[] }>({})
+  const [taskContactGroups, setTaskContactGroups] = useState<{ [taskId: string]: TaskContactGroup[] }>({})
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [isRefreshing, setIsRefreshing] = useState(false)
@@ -57,6 +67,7 @@ export default function TachesPage() {
   const [dueDate, setDueDate] = useState('')
   const [projectId, setProjectId] = useState('')
   const [selectedContacts, setSelectedContacts] = useState<Array<{ contact_id: string; role: string }>>([])
+  const [selectedGroups, setSelectedGroups] = useState<string[]>([])
   
   const [editingTask, setEditingTask] = useState<Task | null>(null)
   const [editTitle, setEditTitle] = useState('')
@@ -64,12 +75,14 @@ export default function TachesPage() {
   const [editDueDate, setEditDueDate] = useState('')
   const [editProjectId, setEditProjectId] = useState('')
   const [editSelectedContacts, setEditSelectedContacts] = useState<Array<{ contact_id: string; role: string }>>([])
+  const [editSelectedGroups, setEditSelectedGroups] = useState<string[]>([])
   
   useEffect(() => {
     checkUser()
     loadTasks()
     loadProjects()
     loadContacts()
+    loadContactGroups()
   }, [])
   
   useEffect(() => {
@@ -118,9 +131,23 @@ export default function TachesPage() {
     if (error) {
       console.error('Erreur chargement:', error)
     } else {
-      setTasks(data || [])
-      if (data) {
-        await loadTaskContacts(data.map(t => t.id))
+      // Filtrer les tâches terminées depuis plus de 3 jours
+      const threeDaysAgo = new Date()
+      threeDaysAgo.setDate(threeDaysAgo.getDate() - 3)
+      
+      const filteredTasks = (data || []).filter(task => {
+        // Si la tâche n'est pas terminée, on l'affiche
+        if (task.status !== 'done') return true
+        
+        // Si la tâche est terminée, on vérifie la date de mise à jour
+        const updatedAt = new Date(task.updated_at || task.created_at)
+        return updatedAt > threeDaysAgo
+      })
+      
+      setTasks(filteredTasks)
+      if (filteredTasks.length > 0) {
+        await loadTaskContacts(filteredTasks.map(t => t.id))
+        await loadTaskContactGroups(filteredTasks.map(t => t.id))
       }
     }
     setLoading(false)
@@ -154,6 +181,34 @@ export default function TachesPage() {
       console.error('Erreur chargement contacts de tâches:', error)
     }
   }
+
+  const loadTaskContactGroups = async (taskIds: string[]) => {
+    if (taskIds.length === 0) return
+    
+    try {
+      const { data, error } = await supabase
+        .from('task_contact_groups')
+        .select(`
+          *,
+          contact_group:contact_groups(*)
+        `)
+        .in('task_id', taskIds)
+
+      if (error) throw error
+
+      const groupsByTask: { [taskId: string]: TaskContactGroup[] } = {}
+      ;(data || []).forEach((tcg: TaskContactGroup) => {
+        if (!groupsByTask[tcg.task_id]) {
+          groupsByTask[tcg.task_id] = []
+        }
+        groupsByTask[tcg.task_id].push(tcg)
+      })
+
+      setTaskContactGroups(groupsByTask)
+    } catch (error) {
+      console.error('Erreur chargement groupes de tâches:', error)
+    }
+  }
   
   const loadProjects = async () => {
     const { data, error } = await supabase
@@ -176,6 +231,17 @@ export default function TachesPage() {
     
     if (!error) {
       setContacts(data || [])
+    }
+  }
+
+  const loadContactGroups = async () => {
+    const { data, error } = await supabase
+      .from('contact_groups')
+      .select('*')
+      .order('name', { ascending: true })
+    
+    if (!error) {
+      setContactGroups(data || [])
     }
   }
   
@@ -224,11 +290,28 @@ export default function TachesPage() {
       }
     }
 
+    // Ajouter les groupes
+    if (selectedGroups.length > 0) {
+      const groupsToInsert = selectedGroups.map(groupId => ({
+        task_id: data.id,
+        group_id: groupId,
+      }))
+
+      const { error: groupError } = await supabase
+        .from('task_contact_groups')
+        .insert(groupsToInsert)
+
+      if (groupError) {
+        console.error('Erreur ajout groupes:', groupError)
+      }
+    }
+
     setTitle('')
     setDescription('')
     setDueDate('')
     setProjectId('')
     setSelectedContacts([])
+    setSelectedGroups([])
     setShowForm(false)
     loadTasks()
   }
@@ -270,18 +353,30 @@ export default function TachesPage() {
     setShowForm(false)
 
     // Charger les contacts de la tâche
-    const { data, error } = await supabase
+    const { data: contactsData, error: contactsError } = await supabase
       .from('task_contacts')
       .select('*')
       .eq('task_id', task.id)
 
-    if (!error && data) {
-      setEditSelectedContacts(data.map(tc => ({
+    if (!contactsError && contactsData) {
+      setEditSelectedContacts(contactsData.map(tc => ({
         contact_id: tc.contact_id,
         role: tc.role,
       })))
     } else {
       setEditSelectedContacts([])
+    }
+
+    // Charger les groupes de la tâche
+    const { data: groupsData, error: groupsError } = await supabase
+      .from('task_contact_groups')
+      .select('*')
+      .eq('task_id', task.id)
+
+    if (!groupsError && groupsData) {
+      setEditSelectedGroups(groupsData.map(tcg => tcg.group_id))
+    } else {
+      setEditSelectedGroups([])
     }
 
     setTimeout(() => {
@@ -296,6 +391,7 @@ export default function TachesPage() {
     setEditDueDate('')
     setEditProjectId('')
     setEditSelectedContacts([])
+    setEditSelectedGroups([])
   }
   
   const saveEdit = async () => {
@@ -341,6 +437,27 @@ export default function TachesPage() {
 
       if (contactError) {
         console.error('Erreur mise à jour contacts:', contactError)
+      }
+    }
+
+    // Supprimer les anciens groupes et ajouter les nouveaux
+    await supabase
+      .from('task_contact_groups')
+      .delete()
+      .eq('task_id', editingTask.id)
+
+    if (editSelectedGroups.length > 0) {
+      const groupsToInsert = editSelectedGroups.map(groupId => ({
+        task_id: editingTask.id,
+        group_id: groupId,
+      }))
+
+      const { error: groupError } = await supabase
+        .from('task_contact_groups')
+        .insert(groupsToInsert)
+
+      if (groupError) {
+        console.error('Erreur mise à jour groupes:', groupError)
       }
     }
 
@@ -399,6 +516,22 @@ export default function TachesPage() {
     }
   }
 
+  const toggleGroup = (groupId: string, isEdit: boolean = false) => {
+    if (isEdit) {
+      if (editSelectedGroups.includes(groupId)) {
+        setEditSelectedGroups(editSelectedGroups.filter(id => id !== groupId))
+      } else {
+        setEditSelectedGroups([...editSelectedGroups, groupId])
+      }
+    } else {
+      if (selectedGroups.includes(groupId)) {
+        setSelectedGroups(selectedGroups.filter(id => id !== groupId))
+      } else {
+        setSelectedGroups([...selectedGroups, groupId])
+      }
+    }
+  }
+
   const roleLabels: { [key: string]: string } = {
     assigned: 'Assigné',
     reviewer: 'Reviewer',
@@ -434,6 +567,7 @@ export default function TachesPage() {
   const TaskCard = ({ task }: { task: Task }) => {
     const project = getProjectName(task.project_id)
     const taskContactsList = taskContacts[task.id] || []
+    const taskGroupsList = taskContactGroups[task.id] || []
 
     return (
       <div
@@ -481,6 +615,25 @@ export default function TachesPage() {
             ))}
           </div>
         )}
+
+        {/* Groupes participants */}
+        {taskGroupsList.length > 0 && (
+          <div className="mb-3 flex flex-wrap gap-1">
+            {taskGroupsList.map((tcg) => (
+              <div
+                key={tcg.id}
+                className="text-xs px-2 py-1 rounded-full flex items-center gap-1"
+                style={{
+                  backgroundColor: `${tcg.contact_group?.color}20`,
+                  color: tcg.contact_group?.color,
+                }}
+              >
+                <span>🏢</span>
+                <span>{tcg.contact_group?.name}</span>
+              </div>
+            ))}
+          </div>
+        )}
         
         {task.due_date && (
           <p 
@@ -503,7 +656,7 @@ export default function TachesPage() {
             className="inline-block mb-3"
           >
             <span
-              className="text-xs px-2 py-1 rounded-full text-white"
+              className="text-xs px-2 py-1 rounded-full text-white hover:opacity-80 transition-opacity"
               style={{ backgroundColor: project.color || '#8b5cf6' }}
             >
               📁 {project.name}
@@ -514,7 +667,7 @@ export default function TachesPage() {
         <div className="flex gap-2">
           <button
             onClick={() => startEdit(task)}
-            className="text-white px-3 py-1 rounded text-sm"
+            className="text-white px-3 py-1 rounded text-sm hover:opacity-80 transition-opacity"
             style={{ backgroundColor: 'var(--color-text-tertiary)' }}
           >
             ✏️
@@ -533,14 +686,14 @@ export default function TachesPage() {
             <>
               <button
                 onClick={() => updateTaskStatus(task.id, 'todo')}
-                className="text-white px-3 py-1 rounded text-sm"
+                className="text-white px-3 py-1 rounded text-sm hover:opacity-80 transition-opacity"
                 style={{ backgroundColor: 'var(--color-text-tertiary)' }}
               >
                 ⬅️
               </button>
               <button
                 onClick={() => updateTaskStatus(task.id, 'done')}
-                className="flex-1 text-white px-3 py-1 rounded text-sm"
+                className="flex-1 text-white px-3 py-1 rounded text-sm hover:opacity-80 transition-opacity"
                 style={{ backgroundColor: 'var(--color-success)' }}
               >
                 ✅ Terminer
@@ -559,7 +712,7 @@ export default function TachesPage() {
           
           <button
             onClick={() => deleteTask(task.id)}
-            className="text-white px-3 py-1 rounded text-sm"
+            className="text-white px-3 py-1 rounded text-sm hover:opacity-80 transition-opacity"
             style={{ backgroundColor: 'var(--color-error)' }}
           >
             🗑️
@@ -622,7 +775,7 @@ export default function TachesPage() {
               </h2>
               <button
                 onClick={cancelEdit}
-                className="font-bold text-xl"
+                className="font-bold text-xl hover:opacity-70"
                 style={{ color: 'var(--color-text-secondary)' }}
               >
                 ❌
@@ -726,7 +879,7 @@ export default function TachesPage() {
                   <button
                     type="button"
                     onClick={() => addContact(true)}
-                    className="text-sm px-3 py-1 rounded"
+                    className="text-sm px-3 py-1 rounded hover:opacity-80"
                     style={{
                       backgroundColor: 'var(--color-primary)',
                       color: 'white',
@@ -781,7 +934,7 @@ export default function TachesPage() {
                         <button
                           type="button"
                           onClick={() => removeContact(index, true)}
-                          className="p-1 rounded text-sm"
+                          className="p-1 rounded text-sm hover:opacity-80"
                           style={{
                             backgroundColor: 'rgba(239, 68, 68, 0.1)',
                             color: 'var(--color-error)',
@@ -790,6 +943,53 @@ export default function TachesPage() {
                           🗑️
                         </button>
                       </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Groupes */}
+              <div>
+                <label 
+                  className="block text-sm font-medium mb-2"
+                  style={{ color: 'var(--color-text-secondary)' }}
+                >
+                  🏢 Groupes participants
+                </label>
+
+                {contactGroups.length === 0 ? (
+                  <p className="text-sm text-center py-4" style={{ color: 'var(--color-text-secondary)' }}>
+                    Aucun groupe disponible
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {contactGroups.map((group) => (
+                      <label
+                        key={group.id}
+                        className="flex items-center gap-3 p-2 rounded-lg border cursor-pointer hover:opacity-80"
+                        style={{
+                          backgroundColor: editSelectedGroups.includes(group.id)
+                            ? `${group.color}20`
+                            : 'var(--color-bg-primary)',
+                          borderColor: 'var(--color-border)',
+                        }}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={editSelectedGroups.includes(group.id)}
+                          onChange={() => toggleGroup(group.id, true)}
+                          className="w-4 h-4"
+                        />
+                        <div className="flex-1">
+                          <div className="font-medium text-sm" style={{ color: 'var(--color-text-primary)' }}>
+                            {group.name}
+                          </div>
+                        </div>
+                        <div
+                          className="w-4 h-4 rounded-full"
+                          style={{ backgroundColor: group.color }}
+                        />
+                      </label>
                     ))}
                   </div>
                 )}
@@ -804,7 +1004,7 @@ export default function TachesPage() {
                 </button>
                 <button
                   onClick={cancelEdit}
-                  className="px-6 py-3 rounded-lg font-semibold"
+                  className="px-6 py-3 rounded-lg font-semibold hover:opacity-80"
                   style={{
                     backgroundColor: 'var(--color-bg-tertiary)',
                     color: 'var(--color-text-secondary)'
@@ -932,7 +1132,7 @@ export default function TachesPage() {
                   <button
                     type="button"
                     onClick={() => addContact(false)}
-                    className="text-sm px-3 py-1 rounded"
+                    className="text-sm px-3 py-1 rounded hover:opacity-80"
                     style={{
                       backgroundColor: 'var(--color-primary-light)',
                       color: 'var(--color-primary)',
@@ -987,7 +1187,7 @@ export default function TachesPage() {
                         <button
                           type="button"
                           onClick={() => removeContact(index, false)}
-                          className="p-1 rounded text-sm"
+                          className="p-1 rounded text-sm hover:opacity-80"
                           style={{
                             backgroundColor: 'rgba(239, 68, 68, 0.1)',
                             color: 'var(--color-error)',
@@ -996,6 +1196,53 @@ export default function TachesPage() {
                           🗑️
                         </button>
                       </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Groupes */}
+              <div>
+                <label 
+                  className="block text-sm font-medium mb-2"
+                  style={{ color: 'var(--color-text-secondary)' }}
+                >
+                  🏢 Groupes participants
+                </label>
+
+                {contactGroups.length === 0 ? (
+                  <p className="text-sm text-center py-4" style={{ color: 'var(--color-text-secondary)' }}>
+                    Aucun groupe disponible
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {contactGroups.map((group) => (
+                      <label
+                        key={group.id}
+                        className="flex items-center gap-3 p-2 rounded-lg border cursor-pointer hover:opacity-80"
+                        style={{
+                          backgroundColor: selectedGroups.includes(group.id)
+                            ? `${group.color}20`
+                            : 'var(--color-bg-secondary)',
+                          borderColor: 'var(--color-border)',
+                        }}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={selectedGroups.includes(group.id)}
+                          onChange={() => toggleGroup(group.id, false)}
+                          className="w-4 h-4"
+                        />
+                        <div className="flex-1">
+                          <div className="font-medium text-sm" style={{ color: 'var(--color-text-primary)' }}>
+                            {group.name}
+                          </div>
+                        </div>
+                        <div
+                          className="w-4 h-4 rounded-full"
+                          style={{ backgroundColor: group.color }}
+                        />
+                      </label>
                     ))}
                   </div>
                 )}
@@ -1118,6 +1365,13 @@ export default function TachesPage() {
                 {doneTasks.length}
               </span>
             </div>
+
+            <p 
+              className="text-xs mb-4 text-center"
+              style={{ color: 'var(--color-text-tertiary)' }}
+            >
+              ℹ️ Les tâches terminées depuis plus de 3 jours sont masquées
+            </p>
             
             <div className="space-y-3">
               {doneTasks.length === 0 ? (

@@ -21,6 +21,7 @@ export default function Navbar() {
     { href: '/projets', label: 'Projets', icon: '📁' },
     { href: '/contacts', label: 'Contacts', icon: '👥' },
     { href: '/groupes', label: 'Groupes', icon: '🏢' },
+    { href: '/rapports', label: 'Rapports', icon: '📈' },
   ];
 
   const isActive = (href: string) => {
@@ -33,6 +34,9 @@ export default function Navbar() {
     if (href === '/groupes' && pathname.startsWith('/groupes')) {
       return true;
     }
+    if (href === '/rapports' && pathname.startsWith('/rapports')) {
+      return true;
+    }
     return pathname === href;
   };
 
@@ -40,7 +44,7 @@ export default function Navbar() {
     <nav 
       className="shadow-sm border-b"
       style={{ 
-        backgroundColor: 'var(--color-bg-primary)',
+        backgroundColor: 'var(--color-bg-secondary)',
         borderColor: 'var(--color-border)'
       }}
     >

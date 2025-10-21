@@ -5,6 +5,7 @@ import { supabase } from '../../lib/supabase'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import ProjectTimeDisplay from '@/components/ProjectTimeDisplay';
+import { ContactGroup } from '../../lib/types';
 
 interface Project {
   id: string
@@ -31,9 +32,35 @@ interface Event {
   id: string
 }
 
+interface Contact {
+  id: string
+  first_name: string
+  last_name: string
+  email?: string
+}
+
+interface ProjectContact {
+  id: string
+  project_id: string
+  contact_id: string
+  role: string
+  contact?: Contact
+}
+
+interface ProjectContactGroup {
+  id: string
+  project_id: string
+  group_id: string
+  contact_group?: ContactGroup
+}
+
 export default function ProjetsPage() {
   const [user, setUser] = useState<any>(null)
   const [projects, setProjects] = useState<Project[]>([])
+  const [contacts, setContacts] = useState<Contact[]>([])
+  const [contactGroups, setContactGroups] = useState<ContactGroup[]>([])
+  const [projectContacts, setProjectContacts] = useState<{ [projectId: string]: ProjectContact[] }>({})
+  const [projectContactGroups, setProjectContactGroups] = useState<{ [projectId: string]: ProjectContactGroup[] }>({})
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [isRefreshing, setIsRefreshing] = useState(false)
@@ -46,6 +73,8 @@ export default function ProjetsPage() {
   const [budgetTotal, setBudgetTotal] = useState('')
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
+  const [selectedContacts, setSelectedContacts] = useState<Array<{ contact_id: string; role: string }>>([])
+  const [selectedGroups, setSelectedGroups] = useState<string[]>([])
   
   // États pour l'édition
   const [editingProject, setEditingProject] = useState<Project | null>(null)
@@ -55,6 +84,8 @@ export default function ProjetsPage() {
   const [editBudgetTotal, setEditBudgetTotal] = useState('')
   const [editStartDate, setEditStartDate] = useState('')
   const [editEndDate, setEditEndDate] = useState('')
+  const [editSelectedContacts, setEditSelectedContacts] = useState<Array<{ contact_id: string; role: string }>>([])
+  const [editSelectedGroups, setEditSelectedGroups] = useState<string[]>([])
   
   // Stats par projet (nombre de tâches/événements)
   const [projectStats, setProjectStats] = useState<{[key: string]: {tasks: number, events: number, tasksDone: number}}>({})
@@ -62,6 +93,8 @@ export default function ProjetsPage() {
   useEffect(() => {
     checkUser()
     loadProjects()
+    loadContacts()
+    loadContactGroups()
   }, [])
   
   // Polling
@@ -98,10 +131,93 @@ export default function ProjetsPage() {
       setProjects(data || [])
       // Charger les stats pour chaque projet
       loadProjectStats(data || [])
+      if (data && data.length > 0) {
+        await loadProjectContacts(data.map(p => p.id))
+        await loadProjectContactGroups(data.map(p => p.id))
+      }
     }
     
     setLoading(false)
     setIsRefreshing(false)
+  }
+
+  const loadProjectContacts = async (projectIds: string[]) => {
+    if (projectIds.length === 0) return
+    
+    try {
+      const { data, error } = await supabase
+        .from('project_contacts')
+        .select(`
+          *,
+          contact:contacts(*)
+        `)
+        .in('project_id', projectIds)
+
+      if (error) throw error
+
+      const contactsByProject: { [projectId: string]: ProjectContact[] } = {}
+      ;(data || []).forEach((pc: ProjectContact) => {
+        if (!contactsByProject[pc.project_id]) {
+          contactsByProject[pc.project_id] = []
+        }
+        contactsByProject[pc.project_id].push(pc)
+      })
+
+      setProjectContacts(contactsByProject)
+    } catch (error) {
+      console.error('Erreur chargement contacts de projets:', error)
+    }
+  }
+
+  const loadProjectContactGroups = async (projectIds: string[]) => {
+    if (projectIds.length === 0) return
+    
+    try {
+      const { data, error } = await supabase
+        .from('project_contact_groups')
+        .select(`
+          *,
+          contact_group:contact_groups(*)
+        `)
+        .in('project_id', projectIds)
+
+      if (error) throw error
+
+      const groupsByProject: { [projectId: string]: ProjectContactGroup[] } = {}
+      ;(data || []).forEach((pcg: ProjectContactGroup) => {
+        if (!groupsByProject[pcg.project_id]) {
+          groupsByProject[pcg.project_id] = []
+        }
+        groupsByProject[pcg.project_id].push(pcg)
+      })
+
+      setProjectContactGroups(groupsByProject)
+    } catch (error) {
+      console.error('Erreur chargement groupes de projets:', error)
+    }
+  }
+
+  const loadContacts = async () => {
+    const { data, error } = await supabase
+      .from('contacts')
+      .select('id, first_name, last_name, email')
+      .eq('status', 'active')
+      .order('last_name', { ascending: true })
+    
+    if (!error) {
+      setContacts(data || [])
+    }
+  }
+
+  const loadContactGroups = async () => {
+    const { data, error } = await supabase
+      .from('contact_groups')
+      .select('*')
+      .order('name', { ascending: true })
+    
+    if (!error) {
+      setContactGroups(data || [])
+    }
   }
   
   const loadProjectStats = async (projectsList: Project[]) => {
@@ -136,7 +252,7 @@ export default function ProjetsPage() {
       return
     }
     
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('projects')
       .insert([
         {
@@ -150,23 +266,61 @@ export default function ProjetsPage() {
           status: 'active'
         }
       ])
+      .select()
+      .single()
     
     if (error) {
       console.error('Erreur création:', error)
       alert('Erreur lors de la création')
-    } else {
-      setName('')
-      setDescription('')
-      setColor('#8b5cf6')
-      setBudgetTotal('')
-      setStartDate('')
-      setEndDate('')
-      setShowForm(false)
-      loadProjects()
+      return
     }
+
+    // Ajouter les contacts
+    if (selectedContacts.length > 0) {
+      const contactsToInsert = selectedContacts.map(sc => ({
+        project_id: data.id,
+        contact_id: sc.contact_id,
+        role: sc.role,
+      }))
+
+      const { error: contactError } = await supabase
+        .from('project_contacts')
+        .insert(contactsToInsert)
+
+      if (contactError) {
+        console.error('Erreur ajout contacts:', contactError)
+      }
+    }
+
+    // Ajouter les groupes
+    if (selectedGroups.length > 0) {
+      const groupsToInsert = selectedGroups.map(groupId => ({
+        project_id: data.id,
+        group_id: groupId,
+      }))
+
+      const { error: groupError } = await supabase
+        .from('project_contact_groups')
+        .insert(groupsToInsert)
+
+      if (groupError) {
+        console.error('Erreur ajout groupes:', groupError)
+      }
+    }
+
+    setName('')
+    setDescription('')
+    setColor('#8b5cf6')
+    setBudgetTotal('')
+    setStartDate('')
+    setEndDate('')
+    setSelectedContacts([])
+    setSelectedGroups([])
+    setShowForm(false)
+    loadProjects()
   }
   
-  const startEdit = (project: Project) => {
+  const startEdit = async (project: Project) => {
     setEditingProject(project)
     setEditName(project.name)
     setEditDescription(project.description || '')
@@ -175,6 +329,33 @@ export default function ProjetsPage() {
     setEditStartDate(project.start_date || '')
     setEditEndDate(project.end_date || '')
     setShowForm(false)
+
+    // Charger les contacts du projet
+    const { data: contactsData, error: contactsError } = await supabase
+      .from('project_contacts')
+      .select('*')
+      .eq('project_id', project.id)
+
+    if (!contactsError && contactsData) {
+      setEditSelectedContacts(contactsData.map(pc => ({
+        contact_id: pc.contact_id,
+        role: pc.role,
+      })))
+    } else {
+      setEditSelectedContacts([])
+    }
+
+    // Charger les groupes du projet
+    const { data: groupsData, error: groupsError } = await supabase
+      .from('project_contact_groups')
+      .select('*')
+      .eq('project_id', project.id)
+
+    if (!groupsError && groupsData) {
+      setEditSelectedGroups(groupsData.map(pcg => pcg.group_id))
+    } else {
+      setEditSelectedGroups([])
+    }
     
     setTimeout(() => {
       window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -189,6 +370,8 @@ export default function ProjetsPage() {
     setEditBudgetTotal('')
     setEditStartDate('')
     setEditEndDate('')
+    setEditSelectedContacts([])
+    setEditSelectedGroups([])
   }
   
   const saveEdit = async () => {
@@ -213,10 +396,54 @@ export default function ProjetsPage() {
     if (error) {
       console.error('Erreur mise à jour:', error)
       alert('Erreur lors de la mise à jour')
-    } else {
-      cancelEdit()
-      loadProjects()
+      return
     }
+
+    // Supprimer les anciens contacts et ajouter les nouveaux
+    await supabase
+      .from('project_contacts')
+      .delete()
+      .eq('project_id', editingProject.id)
+
+    if (editSelectedContacts.length > 0) {
+      const contactsToInsert = editSelectedContacts.map(sc => ({
+        project_id: editingProject.id,
+        contact_id: sc.contact_id,
+        role: sc.role,
+      }))
+
+      const { error: contactError } = await supabase
+        .from('project_contacts')
+        .insert(contactsToInsert)
+
+      if (contactError) {
+        console.error('Erreur mise à jour contacts:', contactError)
+      }
+    }
+
+    // Supprimer les anciens groupes et ajouter les nouveaux
+    await supabase
+      .from('project_contact_groups')
+      .delete()
+      .eq('project_id', editingProject.id)
+
+    if (editSelectedGroups.length > 0) {
+      const groupsToInsert = editSelectedGroups.map(groupId => ({
+        project_id: editingProject.id,
+        group_id: groupId,
+      }))
+
+      const { error: groupError } = await supabase
+        .from('project_contact_groups')
+        .insert(groupsToInsert)
+
+      if (groupError) {
+        console.error('Erreur mise à jour groupes:', groupError)
+      }
+    }
+
+    cancelEdit()
+    loadProjects()
   }
   
   const updateStatus = async (projectId: string, newStatus: 'active' | 'archived' | 'completed') => {
@@ -251,6 +478,79 @@ export default function ProjetsPage() {
     const stats = projectStats[projectId]
     if (!stats || stats.tasks === 0) return 0
     return Math.round((stats.tasksDone / stats.tasks) * 100)
+  }
+
+  const addContact = (isEdit: boolean = false) => {
+    if (contacts.length === 0) {
+      alert('Aucun contact disponible. Créez d\'abord des contacts.')
+      return
+    }
+    const newContact = { contact_id: contacts[0].id, role: 'member' }
+    if (isEdit) {
+      setEditSelectedContacts([...editSelectedContacts, newContact])
+    } else {
+      setSelectedContacts([...selectedContacts, newContact])
+    }
+  }
+
+  const removeContact = (index: number, isEdit: boolean = false) => {
+    if (isEdit) {
+      setEditSelectedContacts(editSelectedContacts.filter((_, i) => i !== index))
+    } else {
+      setSelectedContacts(selectedContacts.filter((_, i) => i !== index))
+    }
+  }
+
+  const updateContactRole = (index: number, role: string, isEdit: boolean = false) => {
+    if (isEdit) {
+      const updated = [...editSelectedContacts]
+      updated[index].role = role
+      setEditSelectedContacts(updated)
+    } else {
+      const updated = [...selectedContacts]
+      updated[index].role = role
+      setSelectedContacts(updated)
+    }
+  }
+
+  const updateContactId = (index: number, contactId: string, isEdit: boolean = false) => {
+    if (isEdit) {
+      const updated = [...editSelectedContacts]
+      updated[index].contact_id = contactId
+      setEditSelectedContacts(updated)
+    } else {
+      const updated = [...selectedContacts]
+      updated[index].contact_id = contactId
+      setSelectedContacts(updated)
+    }
+  }
+
+  const toggleGroup = (groupId: string, isEdit: boolean = false) => {
+    if (isEdit) {
+      if (editSelectedGroups.includes(groupId)) {
+        setEditSelectedGroups(editSelectedGroups.filter(id => id !== groupId))
+      } else {
+        setEditSelectedGroups([...editSelectedGroups, groupId])
+      }
+    } else {
+      if (selectedGroups.includes(groupId)) {
+        setSelectedGroups(selectedGroups.filter(id => id !== groupId))
+      } else {
+        setSelectedGroups([...selectedGroups, groupId])
+      }
+    }
+  }
+
+  const roleLabels: { [key: string]: string } = {
+    manager: 'Chef de projet',
+    member: 'Membre',
+    observer: 'Observateur',
+  }
+
+  const roleColors: { [key: string]: string } = {
+    manager: '#8b5cf6',
+    member: '#3b82f6',
+    observer: '#6b7280',
   }
   
   if (loading) {
@@ -377,6 +677,119 @@ export default function ProjetsPage() {
                   />
                 </div>
               </div>
+
+              {/* Contacts */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="block text-sm font-medium text-theme-secondary">
+                    👥 Équipe du projet
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => addContact(true)}
+                    className="text-sm px-3 py-1 rounded hover:opacity-80"
+                    style={{
+                      backgroundColor: 'var(--color-primary)',
+                      color: 'white',
+                    }}
+                  >
+                    + Ajouter
+                  </button>
+                </div>
+
+                {editSelectedContacts.length === 0 ? (
+                  <p className="text-sm text-center py-4 text-theme-tertiary">
+                    Aucun membre
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {editSelectedContacts.map((sc, index) => (
+                      <div
+                        key={index}
+                        className="flex gap-2 items-center p-2 rounded-lg"
+                        style={{
+                          backgroundColor: 'var(--color-bg-primary)',
+                        }}
+                      >
+                        <select
+                          value={sc.contact_id}
+                          onChange={(e) => updateContactId(index, e.target.value, true)}
+                          className="flex-1 px-3 py-1 rounded border text-sm bg-theme-secondary border-theme text-theme-primary"
+                        >
+                          {contacts.map(contact => (
+                            <option key={contact.id} value={contact.id}>
+                              {contact.first_name} {contact.last_name}
+                            </option>
+                          ))}
+                        </select>
+                        <select
+                          value={sc.role}
+                          onChange={(e) => updateContactRole(index, e.target.value, true)}
+                          className="px-3 py-1 rounded border text-sm bg-theme-secondary border-theme text-theme-primary"
+                        >
+                          <option value="manager">👑 Chef de projet</option>
+                          <option value="member">👤 Membre</option>
+                          <option value="observer">👁️ Observateur</option>
+                        </select>
+                        <button
+                          type="button"
+                          onClick={() => removeContact(index, true)}
+                          className="p-1 rounded text-sm hover:opacity-80"
+                          style={{
+                            backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                            color: 'var(--color-error)',
+                          }}
+                        >
+                          🗑️
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Groupes */}
+              <div>
+                <label className="block text-sm font-medium text-theme-secondary mb-2">
+                  🏢 Groupes participants
+                </label>
+
+                {contactGroups.length === 0 ? (
+                  <p className="text-sm text-center py-4 text-theme-tertiary">
+                    Aucun groupe disponible
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {contactGroups.map((group) => (
+                      <label
+                        key={group.id}
+                        className="flex items-center gap-3 p-2 rounded-lg border cursor-pointer hover:opacity-80 bg-theme-primary border-theme"
+                        style={{
+                          backgroundColor: editSelectedGroups.includes(group.id)
+                            ? `${group.color}20`
+                            : undefined,
+                        }}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={editSelectedGroups.includes(group.id)}
+                          onChange={() => toggleGroup(group.id, true)}
+                          className="w-4 h-4"
+                        />
+                        <div className="flex-1">
+                          <div className="font-medium text-sm text-theme-primary">
+                            {group.name}
+                          </div>
+                        </div>
+                        <div
+                          className="w-4 h-4 rounded-full"
+                          style={{ backgroundColor: group.color }}
+                        />
+                      </label>
+                    ))}
+                  </div>
+                )}
+              </div>
               
               <div className="flex gap-2">
                 <button
@@ -475,6 +888,116 @@ export default function ProjetsPage() {
                   />
                 </div>
               </div>
+
+              {/* Contacts */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="block text-sm font-medium text-theme-secondary">
+                    👥 Équipe du projet
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => addContact(false)}
+                    className="text-sm px-3 py-1 rounded hover:opacity-80"
+                    style={{
+                      backgroundColor: 'var(--color-primary-light)',
+                      color: 'var(--color-primary)',
+                    }}
+                  >
+                    + Ajouter
+                  </button>
+                </div>
+
+                {selectedContacts.length === 0 ? (
+                  <p className="text-sm text-center py-4 text-theme-tertiary">
+                    Aucun membre
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {selectedContacts.map((sc, index) => (
+                      <div
+                        key={index}
+                        className="flex gap-2 items-center p-2 rounded-lg bg-theme-secondary"
+                      >
+                        <select
+                          value={sc.contact_id}
+                          onChange={(e) => updateContactId(index, e.target.value, false)}
+                          className="flex-1 px-3 py-1 rounded border text-sm bg-theme-primary border-theme text-theme-primary"
+                        >
+                          {contacts.map(contact => (
+                            <option key={contact.id} value={contact.id}>
+                              {contact.first_name} {contact.last_name}
+                            </option>
+                          ))}
+                        </select>
+                        <select
+                          value={sc.role}
+                          onChange={(e) => updateContactRole(index, e.target.value, false)}
+                          className="px-3 py-1 rounded border text-sm bg-theme-primary border-theme text-theme-primary"
+                        >
+                          <option value="manager">👑 Chef de projet</option>
+                          <option value="member">👤 Membre</option>
+                          <option value="observer">👁️ Observateur</option>
+                        </select>
+                        <button
+                          type="button"
+                          onClick={() => removeContact(index, false)}
+                          className="p-1 rounded text-sm hover:opacity-80"
+                          style={{
+                            backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                            color: 'var(--color-error)',
+                          }}
+                        >
+                          🗑️
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Groupes */}
+              <div>
+                <label className="block text-sm font-medium text-theme-secondary mb-2">
+                  🏢 Groupes participants
+                </label>
+
+                {contactGroups.length === 0 ? (
+                  <p className="text-sm text-center py-4 text-theme-tertiary">
+                    Aucun groupe disponible
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {contactGroups.map((group) => (
+                      <label
+                        key={group.id}
+                        className="flex items-center gap-3 p-2 rounded-lg border cursor-pointer hover:opacity-80 bg-theme-secondary border-theme"
+                        style={{
+                          backgroundColor: selectedGroups.includes(group.id)
+                            ? `${group.color}20`
+                            : undefined,
+                        }}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={selectedGroups.includes(group.id)}
+                          onChange={() => toggleGroup(group.id, false)}
+                          className="w-4 h-4"
+                        />
+                        <div className="flex-1">
+                          <div className="font-medium text-sm text-theme-primary">
+                            {group.name}
+                          </div>
+                        </div>
+                        <div
+                          className="w-4 h-4 rounded-full"
+                          style={{ backgroundColor: group.color }}
+                        />
+                      </label>
+                    ))}
+                  </div>
+                )}
+              </div>
               
               <button
                 onClick={createProject}
@@ -502,6 +1025,8 @@ export default function ProjetsPage() {
               {activeProjects.map((project) => {
                 const progress = getProgressPercentage(project.id)
                 const stats = projectStats[project.id] || { tasks: 0, events: 0, tasksDone: 0 }
+                const projectContactsList = projectContacts[project.id] || []
+                const projectGroupsList = projectContactGroups[project.id] || []
                 
                 return (
                   <div
@@ -527,6 +1052,51 @@ export default function ProjetsPage() {
                       <p className="text-theme-secondary text-sm mb-4">
                         {project.description}
                       </p>
+                    )}
+
+                    {/* Équipe du projet */}
+                    {projectContactsList.length > 0 && (
+                      <div className="mb-3 flex flex-wrap gap-1">
+                        {projectContactsList.slice(0, 3).map((pc) => (
+                          <div
+                            key={pc.id}
+                            className="text-xs px-2 py-1 rounded-full flex items-center gap-1"
+                            style={{
+                              backgroundColor: `${roleColors[pc.role]}20`,
+                              color: roleColors[pc.role],
+                            }}
+                          >
+                            {pc.role === 'manager' && '👑'}
+                            {pc.role === 'member' && '👤'}
+                            {pc.role === 'observer' && '👁️'}
+                            <span>{pc.contact?.first_name} {pc.contact?.last_name}</span>
+                          </div>
+                        ))}
+                        {projectContactsList.length > 3 && (
+                          <div className="text-xs text-theme-tertiary">
+                            +{projectContactsList.length - 3} autre(s)
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Groupes participants */}
+                    {projectGroupsList.length > 0 && (
+                      <div className="mb-3 flex flex-wrap gap-1">
+                        {projectGroupsList.map((pcg) => (
+                          <div
+                            key={pcg.id}
+                            className="text-xs px-2 py-1 rounded-full flex items-center gap-1"
+                            style={{
+                              backgroundColor: `${pcg.contact_group?.color}20`,
+                              color: pcg.contact_group?.color,
+                            }}
+                          >
+                            <span>🏢</span>
+                            <span>{pcg.contact_group?.name}</span>
+                          </div>
+                        ))}
+                      </div>
                     )}
                     
                     {/* Progression */}

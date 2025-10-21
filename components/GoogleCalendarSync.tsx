@@ -45,39 +45,38 @@ export default function GoogleCalendarSync() {
   };
 
   const handleConnect = async () => {
-  try {
-    setLoading(true);
-    
-    console.log('📡 Appel à /api/calendar/connect...');
-    const response = await fetch('/api/calendar/connect', {
-      credentials: 'include', // ← IMPORTANT pour envoyer les cookies
-    });
-    
-    console.log('📡 Status:', response.status);
-    console.log('📡 Content-Type:', response.headers.get('content-type'));
-    
-    if (!response.ok) {
-      const text = await response.text();
-      console.error('❌ Réponse:', text);
-      throw new Error(`Erreur ${response.status}: ${text}`);
+    try {
+      setLoading(true);
+      
+      console.log('📡 Appel à /api/calendar/connect...');
+      const response = await fetch('/api/calendar/connect', {
+        credentials: 'include',
+      });
+      
+      console.log('📡 Status:', response.status);
+      console.log('📡 Content-Type:', response.headers.get('content-type'));
+      
+      if (!response.ok) {
+        const text = await response.text();
+        console.error('❌ Réponse:', text);
+        throw new Error(`Erreur ${response.status}: ${text}`);
+      }
+      
+      const data = await response.json();
+      console.log('📡 Data reçue:', data);
+      
+      if (data.authUrl) {
+        console.log('↪️ Redirection vers Google...');
+        window.location.href = data.authUrl;
+      } else {
+        throw new Error('URL Google manquante');
+      }
+    } catch (error: any) {
+      console.error('❌ Erreur handleConnect:', error);
+      setMessage({ type: 'error', text: error.message });
+      setLoading(false);
     }
-    
-    const data = await response.json();
-    console.log('📡 Data reçue:', data);
-    
-    if (data.authUrl) {
-      console.log('↪️ Redirection vers Google...');
-      // Redirection vers Google OAuth
-      window.location.href = data.authUrl;
-    } else {
-      throw new Error('URL Google manquante');
-    }
-  } catch (error: any) {
-    console.error('❌ Erreur handleConnect:', error);
-    setMessage({ type: 'error', text: error.message });
-    setLoading(false);
-  }
-};
+  };
 
   const handleDisconnect = async () => {
     if (!confirm('Déconnecter Google Calendar ? Vos événements locaux seront conservés.')) {
@@ -138,12 +137,27 @@ export default function GoogleCalendarSync() {
 
   if (loading) {
     return (
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+      <div 
+        className="rounded-lg shadow-sm p-4"
+        style={{
+          background: 'var(--color-bg-primary)',
+          border: '1px solid var(--color-border)'
+        }}
+      >
         <div className="animate-pulse flex items-center gap-3">
-          <div className="w-10 h-10 bg-gray-200 rounded"></div>
+          <div 
+            className="w-10 h-10 rounded"
+            style={{ background: 'var(--color-bg-secondary)' }}
+          ></div>
           <div className="flex-1">
-            <div className="h-4 bg-gray-200 rounded w-1/2 mb-2"></div>
-            <div className="h-3 bg-gray-200 rounded w-1/3"></div>
+            <div 
+              className="h-4 rounded w-1/2 mb-2"
+              style={{ background: 'var(--color-bg-secondary)' }}
+            ></div>
+            <div 
+              className="h-3 rounded w-1/3"
+              style={{ background: 'var(--color-bg-secondary)' }}
+            ></div>
           </div>
         </div>
       </div>
@@ -151,14 +165,27 @@ export default function GoogleCalendarSync() {
   }
 
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+    <div 
+      className="rounded-lg shadow-sm p-4"
+      style={{
+        background: 'var(--color-bg-primary)',
+        border: '1px solid var(--color-border)'
+      }}
+    >
       {/* Message de feedback */}
       {message && (
-        <div className={`mb-4 p-3 rounded-lg flex items-start gap-2 ${
-          message.type === 'success' 
-            ? 'bg-green-50 text-green-800 border border-green-200' 
-            : 'bg-red-50 text-red-800 border border-red-200'
-        }`}>
+        <div 
+          className="mb-4 p-3 rounded-lg flex items-start gap-2"
+          style={{
+            background: message.type === 'success' 
+              ? 'rgba(34, 197, 94, 0.1)' 
+              : 'rgba(239, 68, 68, 0.1)',
+            color: message.type === 'success' 
+              ? '#15803d' 
+              : '#991b1b',
+            border: `1px solid ${message.type === 'success' ? 'rgba(34, 197, 94, 0.3)' : 'rgba(239, 68, 68, 0.3)'}`
+          }}
+        >
           {message.type === 'success' ? (
             <svg className="w-5 h-5 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
               <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
@@ -171,7 +198,8 @@ export default function GoogleCalendarSync() {
           <span className="text-sm flex-1">{message.text}</span>
           <button
             onClick={() => setMessage(null)}
-            className="text-gray-400 hover:text-gray-600"
+            className="hover:opacity-70 transition-opacity"
+            style={{ color: 'var(--color-text-secondary)' }}
           >
             ×
           </button>
@@ -181,28 +209,50 @@ export default function GoogleCalendarSync() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           {/* Logo Google Calendar */}
-          <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center">
+          <div 
+            className="w-10 h-10 rounded-lg flex items-center justify-center"
+            style={{
+              background: 'linear-gradient(135deg, var(--color-primary) 0%, var(--color-accent, var(--color-primary)) 100%)',
+              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)'
+            }}
+          >
             <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24">
               <path d="M19 4h-1V2h-2v2H8V2H6v2H5c-1.11 0-1.99.9-1.99 2L3 20c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 16H5V10h14v10zM9 14H7v-2h2v2zm4 0h-2v-2h2v2zm4 0h-2v-2h2v2zm-8 4H7v-2h2v2zm4 0h-2v-2h2v2zm4 0h-2v-2h2v2z"/>
             </svg>
           </div>
 
           <div>
-            <h3 className="font-semibold text-gray-900">Google Calendar</h3>
+            <h3 
+              className="font-semibold"
+              style={{ color: 'var(--color-text-primary)' }}
+            >
+              Google Calendar
+            </h3>
             {status.connected ? (
-              <div className="text-sm text-gray-600">
+              <div 
+                className="text-sm"
+                style={{ color: 'var(--color-text-secondary)' }}
+              >
                 <p className="flex items-center gap-1">
                   <span className="w-2 h-2 bg-green-500 rounded-full"></span>
                   {status.email}
                 </p>
                 {status.lastSync && (
-                  <p className="text-xs text-gray-500 mt-0.5">
+                  <p 
+                    className="text-xs mt-0.5"
+                    style={{ color: 'var(--color-text-tertiary, var(--color-text-secondary))' }}
+                  >
                     Dernière synchro: {new Date(status.lastSync).toLocaleString('fr-FR')}
                   </p>
                 )}
               </div>
             ) : (
-              <p className="text-sm text-gray-500">Non connecté</p>
+              <p 
+                className="text-sm"
+                style={{ color: 'var(--color-text-secondary)' }}
+              >
+                Non connecté
+              </p>
             )}
           </div>
         </div>
@@ -213,7 +263,7 @@ export default function GoogleCalendarSync() {
               <button
                 onClick={handleSync}
                 disabled={syncing}
-                className={`px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2 ${
+                className={`btn-primary flex items-center gap-2 ${
                   syncing ? 'opacity-50 cursor-not-allowed' : ''
                 }`}
               >
@@ -237,7 +287,19 @@ export default function GoogleCalendarSync() {
               <button
                 onClick={handleDisconnect}
                 disabled={syncing}
-                className="px-3 py-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors"
+                className="px-3 py-2 rounded-lg transition-colors"
+                style={{
+                  color: 'var(--color-text-secondary)',
+                  background: 'transparent'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = 'var(--color-hover)';
+                  e.currentTarget.style.color = 'var(--color-text-primary)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = 'transparent';
+                  e.currentTarget.style.color = 'var(--color-text-secondary)';
+                }}
                 title="Déconnecter"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -248,7 +310,7 @@ export default function GoogleCalendarSync() {
           ) : (
             <button
               onClick={handleConnect}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+              className="btn-primary flex items-center gap-2"
             >
               <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
