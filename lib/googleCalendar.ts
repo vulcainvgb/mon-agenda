@@ -53,12 +53,14 @@ export class GoogleCalendarService {
 
   /**
    * Génère l'URL d'authentification OAuth
+   * 🔥 Le scope 'calendar' donne accès à TOUS les calendriers de l'utilisateur
+   * (primary + partagés + auxquels il est invité)
    */
   getAuthUrl(state: string): string {
     return this.oauth2Client.generateAuthUrl({
       access_type: 'offline',
       scope: [
-        'https://www.googleapis.com/auth/calendar',
+        'https://www.googleapis.com/auth/calendar', // ✅ Accès complet aux calendriers
         'https://www.googleapis.com/auth/userinfo.email',
       ],
       state,
@@ -166,10 +168,12 @@ export class GoogleCalendarService {
         : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000); // 30 jours par défaut
 
       // 3. Import depuis Google Calendar
+      // 🔥 MODIFICATION : Passer google_email pour filtrer les événements avec invités
       const importResult = await this.importFromGoogle(
         calendar,
         userId,
         authData.calendar_id,
+        authData.google_email, // ✅ AJOUT : email de l'utilisateur
         lastSyncAt
       );
       result.imported = importResult.imported;
@@ -204,33 +208,119 @@ export class GoogleCalendarService {
   }
 
   /**
-   * Import des événements depuis Google Calendar
+   * 🔥 FONCTION CORRIGÉE - Import des événements depuis Google Calendar
+   * CORRECTION : Déduplication des événements qui apparaissent dans plusieurs calendriers
    */
   private async importFromGoogle(
     calendar: any,
     userId: string,
     calendarId: string,
+    userEmail: string | null,
     lastSyncAt: Date
   ) {
     const result = { imported: 0, conflicts: 0, errors: [] as string[] };
 
     try {
-      // Récupérer les événements modifiés depuis la dernière synchro
-      const response = await calendar.events.list({
-        calendarId,
-        updatedMin: lastSyncAt.toISOString(),
-        maxResults: 250,
-        singleEvents: true,
-        orderBy: 'updated',
+      console.log('🔍 Récupération des événements depuis Google Calendar...');
+      console.log(`📧 Email utilisateur: ${userEmail}`);
+      
+      // 🔥 SOLUTION : Récupérer les événements de TOUS les calendriers accessibles
+      // Étape 1 : Lister tous les calendriers
+      console.log('\n📋 Étape 1 : Liste de tous vos calendriers...');
+      const calendarListResponse = await calendar.calendarList.list();
+      const calendars = calendarListResponse.data.items || [];
+      
+      console.log(`📅 ${calendars.length} calendrier(s) trouvé(s):`);
+      calendars.forEach((cal: any, idx: number) => {
+        console.log(`   ${idx + 1}. ${cal.summary} (${cal.id}) - ${cal.accessRole}`);
       });
 
-      const googleEvents = response.data.items || [];
+      // Étape 2 : Récupérer les événements de chaque calendrier
+      const allGoogleEvents: any[] = [];
+      
+      for (const cal of calendars) {
+        try {
+          console.log(`\n🔍 Récupération événements du calendrier: "${cal.summary}"...`);
+          
+          const response = await calendar.events.list({
+            calendarId: cal.id,
+            updatedMin: lastSyncAt.toISOString(),
+            maxResults: 250,
+            singleEvents: true,
+            orderBy: 'updated',
+            // 🔥 IMPORTANT : Inclure les événements supprimés pour pouvoir les gérer
+            showDeleted: false,
+          });
+
+          const events = response.data.items || [];
+          console.log(`   ✅ ${events.length} événement(s) trouvé(s)`);
+          
+          // Ajouter les événements à la liste globale
+          allGoogleEvents.push(...events);
+          
+        } catch (calError: any) {
+          console.error(`   ❌ Erreur calendrier "${cal.summary}":`, calError.message);
+          result.errors.push(`Erreur calendrier ${cal.summary}: ${calError.message}`);
+        }
+      }
+
+      // 🔥 CORRECTION PRINCIPALE : DÉDUPLICATION DES ÉVÉNEMENTS
+      // Un même événement peut apparaître dans plusieurs calendriers (invitations)
+      // On utilise gEvent.id comme clé unique pour dédupliquer
+      const uniqueEventsMap = new Map<string, any>();
+      for (const event of allGoogleEvents) {
+        if (!uniqueEventsMap.has(event.id)) {
+          uniqueEventsMap.set(event.id, event);
+        }
+      }
+      const googleEvents = Array.from(uniqueEventsMap.values());
+      
+      console.log(`\n📥 TOTAL : ${allGoogleEvents.length} événements récupérés`);
+      console.log(`✨ APRÈS DÉDUPLICATION : ${googleEvents.length} événements uniques`);
+      console.log(`🗑️  Doublons supprimés : ${allGoogleEvents.length - googleEvents.length}`);
+
+      // 🔥 DEBUG APPROFONDI
+      console.log('\n🔥🔥🔥 DEBUG APPROFONDI - ÉVÉNEMENTS REÇUS 🔥🔥🔥');
+      console.log('📦 Nombre total d\'événements:', googleEvents.length);
+      
+      if (googleEvents.length === 0) {
+        console.log('⚠️  AUCUN ÉVÉNEMENT REÇU');
+      }
+      
+      // Afficher UN APERÇU de tous les événements
+      googleEvents.forEach((evt: any, idx: number) => {
+        console.log(`\n📋 Aperçu événement ${idx + 1}:`);
+        console.log(`   Titre: "${evt.summary}"`);
+        console.log(`   ID Google: ${evt.id}`);
+        console.log(`   Créateur: ${evt.creator?.email || 'N/A'}`);
+        console.log(`   Invités: ${evt.attendees?.length || 0}`);
+        if (evt.attendees && evt.attendees.length > 0) {
+          console.log(`   Liste invités: ${evt.attendees.map((a: any) => a.email).join(', ')}`);
+        }
+      });
+      console.log('🔥🔥🔥 FIN DEBUG 🔥🔥🔥\n');
 
       for (const gEvent of googleEvents) {
         try {
+          console.log(`\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+          console.log(`🔍 Traitement événement: "${gEvent.summary}"`);
+          console.log(`   ID: ${gEvent.id}`);
+          console.log(`   Status: ${gEvent.status}`);
+          console.log(`   Creator: ${gEvent.creator?.email || 'N/A'}`);
+          console.log(`   Organizer: ${gEvent.organizer?.email || 'N/A'}`);
+          
+          if (gEvent.attendees && gEvent.attendees.length > 0) {
+            console.log(`   👥 Invités: ${gEvent.attendees.length}`);
+            gEvent.attendees.forEach((attendee: any, idx: number) => {
+              console.log(`      ${idx + 1}. ${attendee.email} (${attendee.responseStatus || 'inconnu'})`);
+            });
+          } else {
+            console.log(`   👤 Événement sans invité`);
+          }
+
           // Ignorer les événements supprimés
           if (gEvent.status === 'cancelled') {
-            // Supprimer de notre DB si existe
+            console.log(`   🗑️  Événement annulé - suppression locale`);
             await supabase
               .from('events')
               .delete()
@@ -239,46 +329,71 @@ export class GoogleCalendarService {
             continue;
           }
 
-          // Vérifier si l'événement existe déjà
-          const { data: existingEvent } = await supabase
+          // 🔥 CORRECTION : Vérifier que l'événement a des dates valides
+          if (!gEvent.start || (!gEvent.start.dateTime && !gEvent.start.date)) {
+            console.log(`   ⚠️  Événement sans date valide - SKIPPÉ`);
+            continue;
+          }
+
+          // 🔥 CORRECTION : Utiliser .maybeSingle() au lieu de .single()
+          // pour éviter les erreurs quand l'événement n'existe pas
+          const { data: existingEvent, error: existingError } = await supabase
             .from('events')
             .select('*')
             .eq('google_event_id', gEvent.id)
             .eq('user_id', userId)
-            .single();
+            .maybeSingle(); // ✅ Retourne null si pas trouvé au lieu de lever une erreur
+
+          if (existingError) {
+            console.error(`   ❌ Erreur recherche événement existant:`, existingError);
+            result.errors.push(`Erreur recherche: ${existingError.message}`);
+            continue;
+          }
 
           const googleUpdatedAt = new Date(gEvent.updated);
 
           // Résolution de conflit : last-write-wins
           if (existingEvent) {
+            console.log(`   📝 Événement existant trouvé (ID local: ${existingEvent.id})`);
             const localUpdatedAt = new Date(existingEvent.updated_at);
 
             if (googleUpdatedAt > localUpdatedAt) {
-              // Google est plus récent, mettre à jour
+              console.log(`   🔄 Google plus récent → mise à jour locale`);
               await this.updateLocalEvent(existingEvent.id, gEvent);
               result.imported++;
             } else {
-              // Local est plus récent, conflit résolu en faveur du local
+              console.log(`   ⚖️  Local plus récent → conflit résolu (keep local)`);
               result.conflicts++;
             }
           } else {
-            // Nouvel événement à créer
+            console.log(`   ➕ Nouvel événement → création locale`);
             await this.createLocalEvent(userId, gEvent);
             result.imported++;
           }
-        } catch (error: any) {
-          result.errors.push(`Erreur import ${gEvent.summary}: ${error.message}`);
+        } catch (eventError: any) {
+          console.error(`   ❌ Erreur traitement événement "${gEvent.summary}":`, eventError.message);
+          result.errors.push(`Erreur événement ${gEvent.summary}: ${eventError.message}`);
         }
       }
-    } catch (error: any) {
-      result.errors.push(`Erreur liste Google: ${error.message}`);
-    }
 
-    return result;
+      console.log(`\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+      console.log(`✅ Import terminé:`);
+      console.log(`   - Importés: ${result.imported}`);
+      console.log(`   - Conflits: ${result.conflicts}`);
+      console.log(`   - Erreurs: ${result.errors.length}`);
+      
+      return result;
+    } catch (error: any) {
+      console.error('❌ Erreur importFromGoogle:', error);
+      result.errors.push(`Erreur liste Google: ${error.message}`);
+      return result;
+    }
   }
 
   /**
    * Export des événements vers Google Calendar
+   * 🔥 IMPORTANT : Les événements sont exportés vers votre calendrier PRINCIPAL uniquement
+   * (pas vers les calendriers partagés où vous êtes invité)
    */
   private async exportToGoogle(
     calendar: any,
@@ -289,6 +404,8 @@ export class GoogleCalendarService {
     const result = { exported: 0, conflicts: 0, errors: [] as string[] };
 
     try {
+      console.log('\n📤 Export vers Google Calendar (calendrier principal)...');
+      
       // Récupérer les événements locaux modifiés depuis la dernière synchro
       const { data: localEvents, error } = await supabase
         .from('events')
@@ -348,36 +465,16 @@ export class GoogleCalendarService {
           } 
           // CAS 2 : Nouvel événement sans google_event_id
           else {
-            // Vérifier qu'il n'existe pas déjà sur Google (éviter les doublons)
-            const existingEvents = await calendar.events.list({
+            // Créer un nouvel événement directement
+            // (pas de recherche d'événements similaires pour éviter les faux positifs)
+            console.log(`➕ Création nouvel événement sur Google: ${localEvent.title}`);
+            const googleEventId = await this.createGoogleEvent(
+              calendar,
               calendarId,
-              q: localEvent.title,
-              timeMin: new Date(localEvent.start_time).toISOString(),
-              timeMax: new Date(localEvent.end_time).toISOString(),
-              maxResults: 10,
-            });
-
-            const similarEvent = existingEvents.data.items?.find((gEvent: any) => 
-              gEvent.summary === localEvent.title &&
-              Math.abs(new Date(gEvent.start.dateTime).getTime() - new Date(localEvent.start_time).getTime()) < 60000
+              localEvent
             );
-
-            if (similarEvent) {
-              // Lier l'événement existant
-              console.log(`🔗 Événement existant trouvé sur Google, liaison: ${localEvent.title}`);
-              await this.updateLocalEventGoogleId(localEvent.id, similarEvent.id);
-              result.exported++;
-            } else {
-              // Créer un nouvel événement
-              console.log(`➕ Création nouvel événement sur Google: ${localEvent.title}`);
-              const googleEventId = await this.createGoogleEvent(
-                calendar,
-                calendarId,
-                localEvent
-              );
-              await this.updateLocalEventGoogleId(localEvent.id, googleEventId);
-              result.exported++;
-            }
+            await this.updateLocalEventGoogleId(localEvent.id, googleEventId);
+            result.exported++;
           }
         } catch (error: any) {
           console.error(`❌ Erreur export "${localEvent.title}":`, error.message);

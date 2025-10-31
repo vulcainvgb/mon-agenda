@@ -22,6 +22,7 @@ export default function Navbar() {
     { href: '/contacts', label: 'Contacts', icon: '👥' },
     { href: '/groupes', label: 'Groupes', icon: '🏢' },
     { href: '/rapports', label: 'Rapports', icon: '📈' },
+    { href: '/templates', label: 'Templates', icon: '🧩' },
   ];
 
   const isActive = (href: string) => {

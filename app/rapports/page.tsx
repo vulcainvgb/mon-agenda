@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '../../lib/supabase';
+import RapportTempsProjet from '../../components/RapportTempsProjet';
 
 export default function RapportsPage() {
   const router = useRouter();
@@ -73,7 +74,7 @@ export default function RapportsPage() {
           </p>
         </div>
 
-        {/* Types de rapports disponibles - Structure vide pour l'instant */}
+        {/* Types de rapports disponibles */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
           {/* Rapport Tâches */}
           <div 
@@ -165,50 +166,8 @@ export default function RapportsPage() {
             </div>
           </div>
 
-          {/* Rapport Temps */}
-          <div 
-            className="rounded-xl shadow-sm border p-6 hover:shadow-md transition-all cursor-not-allowed opacity-60"
-            style={{
-              backgroundColor: 'var(--color-bg-primary)',
-              borderColor: 'var(--color-border)'
-            }}
-          >
-            <div 
-              className="w-12 h-12 rounded-lg flex items-center justify-center mb-4"
-              style={{ backgroundColor: 'var(--color-success)20' }}
-            >
-              <svg 
-                className="w-6 h-6" 
-                fill="none" 
-                stroke="currentColor" 
-                viewBox="0 0 24 24"
-                style={{ color: 'var(--color-success)' }}
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </div>
-            <h3 
-              className="text-lg font-semibold mb-2"
-              style={{ color: 'var(--color-text-primary)' }}
-            >
-              Rapport de temps
-            </h3>
-            <p 
-              className="text-sm mb-4"
-              style={{ color: 'var(--color-text-secondary)' }}
-            >
-              Analyse du temps passé sur vos projets et événements
-            </p>
-            <div 
-              className="text-xs font-medium px-3 py-1 rounded-full inline-block"
-              style={{
-                backgroundColor: 'var(--color-warning)20',
-                color: 'var(--color-warning)'
-              }}
-            >
-              Bientôt disponible
-            </div>
-          </div>
+          {/* Rapport Temps - MAINTENANT DISPONIBLE ✨ */}
+          <RapportTempsProjet />
 
           {/* Rapport Contacts */}
           <div 
@@ -346,7 +305,7 @@ export default function RapportsPage() {
           </div>
         </div>
 
-        {/* Message informatif */}
+        {/* Message informatif mis à jour */}
         <div 
           className="rounded-xl shadow-sm border p-8 text-center"
           style={{
@@ -356,29 +315,35 @@ export default function RapportsPage() {
         >
           <div 
             className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4"
-            style={{ backgroundColor: 'var(--color-primary-light)' }}
+            style={{ backgroundColor: 'var(--color-success)20' }}
           >
             <svg 
               className="w-8 h-8" 
               fill="none" 
               stroke="currentColor" 
               viewBox="0 0 24 24"
-              style={{ color: 'var(--color-primary)' }}
+              style={{ color: 'var(--color-success)' }}
             >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
           </div>
           <h3 
             className="text-xl font-semibold mb-2"
             style={{ color: 'var(--color-text-primary)' }}
           >
-            Rapports en développement
+            Rapport de temps disponible ! 🎉
           </h3>
           <p 
-            className="text-lg max-w-2xl mx-auto"
+            className="text-lg max-w-2xl mx-auto mb-4"
             style={{ color: 'var(--color-text-secondary)' }}
           >
-            Les différents types de rapports seront bientôt disponibles. Vous pourrez consulter, filtrer et exporter vos données en CSV ou PDF.
+            Le rapport de temps par projet est maintenant disponible. Cliquez sur la carte "Rapport de temps" pour analyser le temps passé sur vos projets.
+          </p>
+          <p 
+            className="text-sm max-w-2xl mx-auto"
+            style={{ color: 'var(--color-text-tertiary)' }}
+          >
+            Les autres types de rapports seront bientôt disponibles. Vous pourrez consulter, filtrer et exporter vos données en CSV ou PDF.
           </p>
         </div>
       </div>
