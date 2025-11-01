@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '../../lib/supabase';
 import RapportTempsProjet from '../../components/RapportTempsProjet';
+import RapportContacts from '../../components/RapportContacts';
 
 export default function RapportsPage() {
   const router = useRouter();
@@ -169,50 +170,8 @@ export default function RapportsPage() {
           {/* Rapport Temps - MAINTENANT DISPONIBLE ✨ */}
           <RapportTempsProjet />
 
-          {/* Rapport Contacts */}
-          <div 
-            className="rounded-xl shadow-sm border p-6 hover:shadow-md transition-all cursor-not-allowed opacity-60"
-            style={{
-              backgroundColor: 'var(--color-bg-primary)',
-              borderColor: 'var(--color-border)'
-            }}
-          >
-            <div 
-              className="w-12 h-12 rounded-lg flex items-center justify-center mb-4"
-              style={{ backgroundColor: 'var(--color-warning)20' }}
-            >
-              <svg 
-                className="w-6 h-6" 
-                fill="none" 
-                stroke="currentColor" 
-                viewBox="0 0 24 24"
-                style={{ color: 'var(--color-warning)' }}
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-              </svg>
-            </div>
-            <h3 
-              className="text-lg font-semibold mb-2"
-              style={{ color: 'var(--color-text-primary)' }}
-            >
-              Rapport des contacts
-            </h3>
-            <p 
-              className="text-sm mb-4"
-              style={{ color: 'var(--color-text-secondary)' }}
-            >
-              Liste et statistiques de vos contacts et groupes
-            </p>
-            <div 
-              className="text-xs font-medium px-3 py-1 rounded-full inline-block"
-              style={{
-                backgroundColor: 'var(--color-warning)20',
-                color: 'var(--color-warning)'
-              }}
-            >
-              Bientôt disponible
-            </div>
-          </div>
+          {/* Rapport Contacts - MAINTENANT DISPONIBLE ✨ */}
+          <RapportContacts />
 
           {/* Rapport Événements */}
           <div 
@@ -331,13 +290,13 @@ export default function RapportsPage() {
             className="text-xl font-semibold mb-2"
             style={{ color: 'var(--color-text-primary)' }}
           >
-            Rapport de temps disponible ! 🎉
+            Nouveaux rapports disponibles ! 🎉
           </h3>
           <p 
             className="text-lg max-w-2xl mx-auto mb-4"
             style={{ color: 'var(--color-text-secondary)' }}
           >
-            Le rapport de temps par projet est maintenant disponible. Cliquez sur la carte "Rapport de temps" pour analyser le temps passé sur vos projets.
+            Le rapport de temps par projet et le rapport des contacts sont maintenant disponibles avec heatmap et filtres avancés !
           </p>
           <p 
             className="text-sm max-w-2xl mx-auto"
